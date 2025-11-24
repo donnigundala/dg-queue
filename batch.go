@@ -5,6 +5,9 @@ import (
 	"time"
 )
 
+// BatchMapper is a function that transforms an item.
+type BatchMapper func(item interface{}) (interface{}, error)
+
 // Batch provides batch processing capabilities.
 type Batch struct {
 	manager *Manager

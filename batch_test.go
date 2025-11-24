@@ -5,13 +5,10 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/donnigundala/dg-queue/drivers/memory"
 )
 
 func TestBatch_DispatchBatch(t *testing.T) {
 	manager := New(DefaultConfig())
-	manager.SetDriver(memory.NewDriver())
 	batch := NewBatch(manager)
 
 	// Register worker
@@ -64,7 +61,6 @@ func TestBatch_EmptyItems(t *testing.T) {
 
 func TestBatch_Chunking(t *testing.T) {
 	manager := New(DefaultConfig())
-	manager.SetDriver(memory.NewDriver())
 	batch := NewBatch(manager)
 
 	// Create 250 items
@@ -97,7 +93,6 @@ func TestBatch_Chunking(t *testing.T) {
 
 func TestBatch_ProgressCallback(t *testing.T) {
 	manager := New(DefaultConfig())
-	manager.SetDriver(memory.NewDriver())
 	batch := NewBatch(manager)
 
 	progressCalls := 0
@@ -137,7 +132,6 @@ func TestBatch_ProgressCallback(t *testing.T) {
 
 func TestBatch_ErrorHandling(t *testing.T) {
 	manager := New(DefaultConfig())
-	manager.SetDriver(memory.NewDriver())
 	batch := NewBatch(manager)
 
 	errorCount := 0
@@ -178,7 +172,6 @@ func TestBatch_ErrorHandling(t *testing.T) {
 
 func TestBatch_Map(t *testing.T) {
 	manager := New(DefaultConfig())
-	manager.SetDriver(memory.NewDriver())
 	batch := NewBatch(manager)
 
 	items := []interface{}{1, 2, 3}

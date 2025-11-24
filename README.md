@@ -2,21 +2,19 @@
 
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.21-blue)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-
-A unified queue and scheduler system for the dg-framework. Simpler than Laravel Queue + Scheduler, but just as powerful.
+A robust, production-ready queue system for Go with Redis backend, cron-based scheduling, and batch processing.
 
 ## Features
 
-### 🚀 Core Features
-- **Queue System** - Asynchronous job processing
-- **Built-in Scheduler** - Cron-like task scheduling (coming soon)
 - 🚀 **Multiple Drivers** - Memory (testing) and Redis (production)
 - ⏰ **Delayed Jobs** - Schedule jobs to run at a specific time
-- 🔄 **Automatic Retries** - Configurable retry attempts with exponential backoff
-- 💀 **Dead Letter Queue** - Failed jobs are moved to a separate queue
+- 📅 **Cron Scheduler** - Schedule recurring jobs with cron expressions
+- 📦 **Batch Processing** - Efficient bulk operations with chunking
+- 🔄 **Automatic Retries** - Configurable retry attempts with backoff
+- 💀 **Dead Letter Queue** - Failed jobs automatically moved to separate queue
 - 👷 **Worker Pools** - Concurrent job processing with configurable workers
 - 🔗 **Shared Client** - Reuse Redis connections across components
-- ✅ **Comprehensive Tests** - 27 tests covering all features
+- ✅ **Comprehensive Tests** - 42 tests covering all features
 
 ## Installation
 
@@ -26,61 +24,124 @@ go get github.com/donnigundala/dg-queue@v1.0.0
 
 ## Quick Start
 
+### Basic Usage (Memory Driver)
+
+```go
+package main
 
 import (
     "context"
     "fmt"
-    "time"
-    
     "github.com/donnigundala/dg-queue"
-    "github.com/donnigundala/dg-queue/drivers/memory"
 )
 
 func main() {
-    // Create queue
+    // Create queue with default config (uses memory driver)
     q := queue.New(queue.DefaultConfig())
-    q.SetDriver(memory.NewDriver())
-    
+
     // Register worker
     q.Worker("send-email", 5, func(job *queue.Job) error {
         email := job.Payload.(map[string]interface{})
         fmt.Printf("Sending email to: %s\n", email["to"])
         return nil
     })
-    
+
     // Start queue
     ctx := context.Background()
     q.Start(ctx)
-    
+    defer q.Stop(ctx)
+
     // Dispatch job
-    q.Dispatch("send-email", map[string]interface{}{
+    job, _ := q.Dispatch("send-email", map[string]interface{}{
         "to":      "user@example.com",
         "subject": "Welcome!",
     })
     
-    // Let it process
-    time.Sleep(1 * time.Second)
-    
-    // Stop gracefully
-    q.Stop(ctx)
+    fmt.Printf("Job %s dispatched\n", job.ID)
 }
 ```
 
-## Current Status
+### Production Usage (Redis Driver)
 
-**✅ Implemented:**
-- Core queue interfaces
-- Job serialization and lifecycle
-- Memory driver for testing
-- Worker pools with concurrency
-- Job retry with backoff
-- Graceful shutdown
+```go
+import (
+    "github.com/donnigundala/dg-queue"
+    "github.com/donnigundala/dg-queue/drivers/redis"
+    goRedis "github.com/redis/go-redis/v9"
+)
 
-**🚧 In Progress:**
-- Redis driver (Phase 3)
-- Cron scheduler (Phase 4)
-- Batch processing (Phase 5)
+// Create Redis driver
+driver, _ := redis.NewDriver("myapp", &goRedis.Options{
+    Addr: "localhost:6379",
+})
 
+q := queue.New(queue.DefaultConfig())
+q.SetDriver(driver)
+```
+
+### Delayed Jobs
+
+```go
+// Dispatch job to run in 5 minutes
+q.DispatchAfter("process-payment", payload, 5*time.Minute)
+```
+
+### Cron Scheduler
+
+```go
+scheduler := queue.NewScheduler(q)
+scheduler.Start()
+defer scheduler.Stop()
+
+// Run every 5 minutes
+scheduler.ScheduleJob("*/5 * * * *", "cleanup", map[string]string{
+    "action": "clean_temp_files",
+})
+
+// Custom schedule with handler
+scheduler.Schedule("0 * * * *", "hourly-report", func() error {
+    fmt.Println("Running hourly report")
+    return nil
+})
+```
+
+### Batch Processing
+
+```go
+batch := queue.NewBatch(q)
+
+items := []interface{}{
+    map[string]string{"email": "user1@test.com"},
+    map[string]string{"email": "user2@test.com"},
+    // ... 1000 more items
+}
+
+config := queue.BatchConfig{
+    ChunkSize: 100,  // Process 100 at a time
+    OnProgress: func(processed, total int) {
+        fmt.Printf("Progress: %d/%d\n", processed, total)
+    },
+    ContinueOnError: true,
+}
+
+status, _ := batch.DispatchBatch("send-email", items, config)
+fmt.Printf("Dispatched %d jobs\n", status.Total)
+```
+
+## Configuration
+
+```go
+config := queue.Config{
+    Driver:       "redis",          // or "memory"
+    DefaultQueue: "default",
+    MaxAttempts:  3,                // Retry up to 3 times
+    Timeout:      30 * time.Second, // Job timeout
+    RetryDelay:   time.Second,      // Delay between retries
+    Workers:      5,                // Worker pool size
+}
+
+q := queue.New(config)
+```
 **📋 Planned:**
 - Job chaining
 - Middleware system

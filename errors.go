@@ -14,4 +14,6 @@ var (
 	ErrInvalidPayload = errors.New("invalid payload")
 	ErrDriverNotFound = errors.New("driver not found")
 	ErrInvalidConfig  = errors.New("invalid configuration")
+	// ErrQueueEmpty is returned when the queue is empty.
+	ErrQueueEmpty = errors.New("queue is empty")
 )

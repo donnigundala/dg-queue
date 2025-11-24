@@ -1,4 +1,4 @@
-package queue
+package queue_test
 
 import (
 	"fmt"
@@ -6,13 +6,14 @@ import (
 	"testing"
 	"time"
 
+	queue "github.com/donnigundala/dg-queue"
 	"github.com/donnigundala/dg-queue/drivers/memory"
 )
 
 func TestBatch_DispatchBatch(t *testing.T) {
-	manager := New(DefaultConfig())
+	manager := queue.New(queue.queue.DefaultConfig())
 	manager.SetDriver(memory.NewDriver())
-	batch := NewBatch(manager)
+	batch := queue.NewBatch(manager)
 
 	// Register worker
 	processed := 0
@@ -52,9 +53,9 @@ func TestBatch_DispatchBatch(t *testing.T) {
 }
 
 func TestBatch_EmptyItems(t *testing.T) {
-	manager := New(DefaultConfig())
+	manager := queue.New(queue.DefaultConfig())
 	manager.SetDriver(memory.NewDriver())
-	batch := NewBatch(manager)
+	batch := queue.NewBatch(manager)
 
 	items := []interface{}{}
 	_, err := batch.DispatchBatch("test", items, DefaultBatchConfig())
@@ -64,9 +65,9 @@ func TestBatch_EmptyItems(t *testing.T) {
 }
 
 func TestBatch_Chunking(t *testing.T) {
-	manager := New(DefaultConfig())
+	manager := queue.New(queue.DefaultConfig())
 	manager.SetDriver(memory.NewDriver())
-	batch := NewBatch(manager)
+	batch := queue.NewBatch(manager)
 
 	// Create 250 items
 	items := make([]interface{}, 250)
@@ -74,7 +75,7 @@ func TestBatch_Chunking(t *testing.T) {
 		items[i] = i
 	}
 
-	config := BatchConfig{
+	config := queue.BatchConfig{
 		ChunkSize:       100,
 		ContinueOnError: true,
 	}
@@ -97,16 +98,16 @@ func TestBatch_Chunking(t *testing.T) {
 }
 
 func TestBatch_ProgressCallback(t *testing.T) {
-	manager := New(DefaultConfig())
+	manager := queue.New(queue.DefaultConfig())
 	manager.SetDriver(memory.NewDriver())
-	batch := NewBatch(manager)
+	batch := queue.NewBatch(manager)
 
 	progressCalls := 0
 	var mu sync.Mutex
 
 	items := []interface{}{1, 2, 3, 4, 5}
 
-	config := BatchConfig{
+	config := queue.BatchConfig{
 		ChunkSize: 100,
 		OnProgress: func(processed, total int) {
 			mu.Lock()
@@ -137,9 +138,9 @@ func TestBatch_ProgressCallback(t *testing.T) {
 }
 
 func TestBatch_ErrorHandling(t *testing.T) {
-	manager := New(DefaultConfig())
+	manager := queue.New(queue.DefaultConfig())
 	manager.SetDriver(memory.NewDriver())
-	batch := NewBatch(manager)
+	batch := queue.NewBatch(manager)
 
 	errorCount := 0
 	var mu sync.Mutex
@@ -147,7 +148,7 @@ func TestBatch_ErrorHandling(t *testing.T) {
 	// Simulate errors by using non-registered job
 	items := []interface{}{1, 2, 3}
 
-	config := BatchConfig{
+	config := queue.BatchConfig{
 		ChunkSize: 100,
 		OnError: func(item interface{}, err error) {
 			mu.Lock()
@@ -178,9 +179,9 @@ func TestBatch_ErrorHandling(t *testing.T) {
 }
 
 func TestBatch_Map(t *testing.T) {
-	manager := New(DefaultConfig())
+	manager := queue.New(queue.DefaultConfig())
 	manager.SetDriver(memory.NewDriver())
-	batch := NewBatch(manager)
+	batch := queue.NewBatch(manager)
 
 	items := []interface{}{1, 2, 3}
 
@@ -208,9 +209,9 @@ func TestBatch_Map(t *testing.T) {
 }
 
 func TestBatch_MapWithError(t *testing.T) {
-	manager := New(DefaultConfig())
+	manager := queue.New(queue.DefaultConfig())
 	manager.SetDriver(memory.NewDriver())
-	batch := NewBatch(manager)
+	batch := queue.NewBatch(manager)
 
 	items := []interface{}{1, 2, 3}
 
@@ -219,7 +220,7 @@ func TestBatch_MapWithError(t *testing.T) {
 		return nil, fmt.Errorf("mapping error")
 	}
 
-	config := BatchConfig{
+	config := queue.BatchConfig{
 		ChunkSize:       100,
 		ContinueOnError: false,
 	}

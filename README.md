@@ -10,25 +10,22 @@ A unified queue and scheduler system for the dg-framework. Simpler than Laravel 
 ### 🚀 Core Features
 - **Queue System** - Asynchronous job processing
 - **Built-in Scheduler** - Cron-like task scheduling (coming soon)
-- **Worker Pools** - Concurrent job processing
-- **Job Retry** - Automatic retry with exponential backoff
-- **Batch Processing** - Efficient bulk operations (coming soon)
-
-### ⚡ Drivers
-- **Memory** - In-memory queue for testing ✅
-- **Redis** - Production-ready with persistence (coming soon)
-- **Database** - SQL-based queue (planned)
+- 🚀 **Multiple Drivers** - Memory (testing) and Redis (production)
+- ⏰ **Delayed Jobs** - Schedule jobs to run at a specific time
+- 🔄 **Automatic Retries** - Configurable retry attempts with exponential backoff
+- 💀 **Dead Letter Queue** - Failed jobs are moved to a separate queue
+- 👷 **Worker Pools** - Concurrent job processing with configurable workers
+- 🔗 **Shared Client** - Reuse Redis connections across components
+- ✅ **Comprehensive Tests** - 27 tests covering all features
 
 ## Installation
 
 ```bash
-go get github.com/donnigundala/dg-queue@latest
+go get github.com/donnigundala/dg-queue@v1.0.0
 ```
 
 ## Quick Start
 
-```go
-package main
 
 import (
     "context"

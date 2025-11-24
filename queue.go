@@ -45,7 +45,7 @@ type WorkerFunc func(job *Job) error
 type ScheduleHandler func() error
 
 // BatchMapper is the function signature for batch item mapping.
-type BatchMapper func(item interface{}) interface{}
+type BatchMapper func(item interface{}) (interface{}, error)
 
 // Middleware is the function signature for queue middleware.
 type Middleware func(next WorkerFunc) WorkerFunc

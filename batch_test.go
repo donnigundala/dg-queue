@@ -11,14 +11,14 @@ import (
 )
 
 func TestBatch_DispatchBatch(t *testing.T) {
-	manager := queue.New(queue.queue.DefaultConfig())
+	manager := queue.New(queue.DefaultConfig())
 	manager.SetDriver(memory.NewDriver())
 	batch := queue.NewBatch(manager)
 
 	// Register worker
 	processed := 0
 	var mu sync.Mutex
-	manager.Worker("batch-job", 5, func(job *Job) error {
+	manager.Worker("batch-job", 5, func(job *queue.Job) error {
 		mu.Lock()
 		processed++
 		mu.Unlock()
@@ -31,7 +31,7 @@ func TestBatch_DispatchBatch(t *testing.T) {
 		map[string]string{"id": "3"},
 	}
 
-	status, err := batch.DispatchBatch("batch-job", items, DefaultBatchConfig())
+	status, err := batch.DispatchBatch("batch-job", items, queue.DefaultBatchConfig())
 	if err != nil {
 		t.Fatalf("Failed to dispatch batch: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestBatch_EmptyItems(t *testing.T) {
 	batch := queue.NewBatch(manager)
 
 	items := []interface{}{}
-	_, err := batch.DispatchBatch("test", items, DefaultBatchConfig())
+	_, err := batch.DispatchBatch("test", items, queue.DefaultBatchConfig())
 	if err == nil {
 		t.Error("Expected error for empty items")
 	}
@@ -191,7 +191,7 @@ func TestBatch_Map(t *testing.T) {
 		return map[string]int{"value": num * 2}, nil
 	}
 
-	status, err := batch.Map("test", items, mapper, DefaultBatchConfig())
+	status, err := batch.Map("test", items, mapper, queue.DefaultBatchConfig())
 	if err != nil {
 		t.Fatalf("Failed to map batch: %v", err)
 	}
@@ -232,7 +232,7 @@ func TestBatch_MapWithError(t *testing.T) {
 }
 
 func TestBatchStatus_Progress(t *testing.T) {
-	status := &BatchStatus{
+	status := &queue.BatchStatus{
 		Total:     100,
 		Processed: 50,
 	}

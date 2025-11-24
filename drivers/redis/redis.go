@@ -136,7 +136,7 @@ func (d *Driver) Get(jobID string) (*queue.Job, error) {
 }
 
 // Size returns the number of jobs in the queue.
-func (d *Driver) Size(queueName string) (int, error) {
+func (d *Driver) Size(queueName string) (int64, error) {
 	ctx := context.Background()
 
 	regularSize, err := d.client.LLen(ctx, d.queueKey(queueName)).Result()
@@ -149,7 +149,7 @@ func (d *Driver) Size(queueName string) (int, error) {
 		return 0, err
 	}
 
-	return int(regularSize + delayedSize), nil
+	return regularSize + delayedSize, nil
 }
 
 // Close closes the Redis connection.

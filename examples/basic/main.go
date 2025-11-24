@@ -40,7 +40,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Queue started! Dispatching jobs...\n")
+	fmt.Println("Queue started! Dispatching jobs...")
 
 	// Dispatch some jobs
 	for i := 1; i <= 5; i++ {

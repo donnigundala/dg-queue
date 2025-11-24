@@ -204,7 +204,7 @@ func (m *Manager) Status(jobID string) (*JobStatus, error) {
 		Status:    job.GetStatus(),
 		Attempts:  job.Attempts,
 		CreatedAt: job.CreatedAt,
-		UpdatedAt: job.CreatedAt, // TODO: Track updates
+		UpdatedAt: job.UpdatedAt,
 		Error:     job.Error,
 	}, nil
 }
@@ -297,26 +297,30 @@ func (m *Manager) dispatchJobs(ctx context.Context) {
 
 // fetchAndDispatchJobs fetches jobs from the driver and dispatches to workers.
 func (m *Manager) fetchAndDispatchJobs() {
-	for name, pool := range m.workers {
-		// Try to pop a job
-		job, err := m.driver.Pop(m.config.DefaultQueue)
-		if err != nil {
-			continue
-		}
+	// Pop ONE job at a time (not one per worker!)
+	job, err := m.driver.Pop(m.config.DefaultQueue)
+	if err != nil {
+		return
+	}
 
-		// Check if job matches this worker
-		if job.Name == name {
-			select {
-			case pool.jobs <- job:
-				// Job dispatched
-			default:
-				// Worker busy, push back
-				m.driver.Push(job)
-			}
-		} else {
-			// Wrong worker, push back
-			m.driver.Push(job)
-		}
+	// Find the worker for this job
+	m.mu.RLock()
+	pool, exists := m.workers[job.Name]
+	m.mu.RUnlock()
+
+	if !exists {
+		// No worker registered for this job type -> dead letter queue
+		m.driver.Failed(job)
+		return
+	}
+
+	// Try to dispatch to worker pool
+	select {
+	case pool.jobs <- job:
+		// Successfully dispatched
+	default:
+		// Worker pool is full, push job back to queue
+		m.driver.Push(job)
 	}
 }
 

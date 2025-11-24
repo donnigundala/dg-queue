@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Job represents a queue job.
+// Job represents a queued job.
 type Job struct {
 	ID          string                 `json:"id"`
 	Name        string                 `json:"name"`
@@ -17,8 +17,9 @@ type Job struct {
 	MaxAttempts int                    `json:"max_attempts"`
 	Timeout     time.Duration          `json:"timeout"`
 	Delay       time.Duration          `json:"delay"`
-	CreatedAt   time.Time              `json:"created_at"`
 	AvailableAt time.Time              `json:"available_at"`
+	CreatedAt   time.Time              `json:"created_at"`
+	UpdatedAt   time.Time              `json:"updated_at"`
 	StartedAt   *time.Time             `json:"started_at,omitempty"`
 	CompletedAt *time.Time             `json:"completed_at,omitempty"`
 	FailedAt    *time.Time             `json:"failed_at,omitempty"`
@@ -39,6 +40,7 @@ func NewJob(name string, payload interface{}) *Job {
 		Timeout:     30 * time.Second,
 		Delay:       0,
 		CreatedAt:   now,
+		UpdatedAt:   now,
 		AvailableAt: now,
 		Metadata:    make(map[string]interface{}),
 	}
@@ -89,6 +91,7 @@ func (j *Job) CanRetry() bool {
 func (j *Job) MarkStarted() {
 	now := time.Now()
 	j.StartedAt = &now
+	j.UpdatedAt = now
 	j.Attempts++
 }
 
@@ -96,12 +99,14 @@ func (j *Job) MarkStarted() {
 func (j *Job) MarkCompleted() {
 	now := time.Now()
 	j.CompletedAt = &now
+	j.UpdatedAt = now
 }
 
 // MarkFailed marks the job as failed.
 func (j *Job) MarkFailed(err error) {
 	now := time.Now()
 	j.FailedAt = &now
+	j.UpdatedAt = now
 	if err != nil {
 		j.Error = err.Error()
 	}

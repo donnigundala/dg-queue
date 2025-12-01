@@ -5,31 +5,31 @@ import "time"
 // Config represents the queue configuration.
 type Config struct {
 	// Driver specifies the queue driver (memory, redis, database)
-	Driver string
+	Driver string `mapstructure:"driver"`
 
 	// Connection specifies the connection name
-	Connection string
+	Connection string `mapstructure:"connection"`
 
 	// Prefix is the key prefix for the queue
-	Prefix string
+	Prefix string `mapstructure:"prefix"`
 
 	// DefaultQueue is the default queue name
-	DefaultQueue string
+	DefaultQueue string `mapstructure:"default_queue"`
 
 	// MaxAttempts is the default maximum retry attempts
-	MaxAttempts int
+	MaxAttempts int `mapstructure:"max_attempts"`
 
 	// Timeout is the default job timeout
-	Timeout time.Duration
+	Timeout time.Duration `mapstructure:"timeout"`
 
 	// RetryDelay is the delay between retries
-	RetryDelay time.Duration
+	RetryDelay time.Duration `mapstructure:"retry_delay"`
 
 	// Workers is the default number of workers
-	Workers int
+	Workers int `mapstructure:"workers"`
 
 	// Options contains driver-specific options
-	Options map[string]interface{}
+	Options map[string]interface{} `mapstructure:"options"`
 }
 
 // DefaultConfig returns a configuration with sensible defaults.

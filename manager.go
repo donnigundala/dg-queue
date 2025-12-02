@@ -13,7 +13,6 @@ type Manager struct {
 	driver     Driver
 	workers    map[string]*workerPool
 	middleware []Middleware
-	schedules  []*schedule
 	running    bool
 	stopChan   chan struct{}
 	wg         sync.WaitGroup
@@ -30,21 +29,12 @@ type workerPool struct {
 	wg          sync.WaitGroup
 }
 
-// schedule represents a scheduled job.
-type schedule struct {
-	cron    string
-	name    string
-	handler ScheduleHandler
-	next    time.Time
-}
-
 // New creates a new queue manager.
 func New(config Config) *Manager {
 	return &Manager{
 		config:     config,
 		workers:    make(map[string]*workerPool),
 		middleware: make([]Middleware, 0),
-		schedules:  make([]*schedule, 0),
 		stopChan:   make(chan struct{}),
 	}
 }
@@ -89,20 +79,16 @@ func (m *Manager) DispatchBatch(name string, config BatchConfig, items interface
 	return fmt.Errorf("batch processing not yet implemented")
 }
 
-// Schedule schedules a job using cron syntax.
+// ScheduleHandler is deprecated along with Schedule method.
+// Deprecated: Use dg-scheduler package instead.
+type ScheduleHandler func() error
+
+// Schedule is deprecated. Use github.com/donnigundala/dg-scheduler instead.
+// This method will be removed in v2.0.0.
+//
+// Deprecated: Scheduler has been moved to a separate package.
 func (m *Manager) Schedule(cron string, name string, handler ScheduleHandler) error {
-	// TODO: Implement cron parsing
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.schedules = append(m.schedules, &schedule{
-		cron:    cron,
-		name:    name,
-		handler: handler,
-		next:    time.Now(), // TODO: Calculate next run time
-	})
-
-	return nil
+	return fmt.Errorf("scheduler has been moved to dg-scheduler package - see github.com/donnigundala/dg-scheduler")
 }
 
 // Worker registers a worker for a job name.
@@ -140,43 +126,44 @@ func (m *Manager) Use(middleware Middleware) Queue {
 // Start starts the queue workers and scheduler.
 func (m *Manager) Start(ctx context.Context) error {
 	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	if m.running {
-		m.mu.Unlock()
 		return fmt.Errorf("queue already running")
 	}
+
+	// Recreate stopChan for safe restart
+	m.stopChan = make(chan struct{})
 	m.running = true
-	m.mu.Unlock()
 
 	// Start workers
 	for _, worker := range m.workers {
 		m.startWorkerPool(worker)
 	}
 
-	// Start job dispatcher
+	m.logInfo("Queue manager starting", "workers", len(m.workers))
+
+	// Start dispatcher
 	m.wg.Add(1)
 	go m.dispatchJobs(ctx)
 
-	// Start scheduler (if schedules exist)
-	if len(m.schedules) > 0 {
-		m.wg.Add(1)
-		go m.runScheduler(ctx)
-	}
-
+	m.logInfo("Queue manager started", "workers", len(m.workers))
 	return nil
 }
 
-// Stop stops the queue gracefully.
+// Stop stops the queue manager gracefully.
 func (m *Manager) Stop(ctx context.Context) error {
 	m.mu.Lock()
 	if !m.running {
 		m.mu.Unlock()
 		return nil
 	}
-	m.running = false
-	m.mu.Unlock()
 
-	// Signal stop
+	m.logInfo("Queue manager stopping", "workers", len(m.workers))
+
+	m.running = false
 	close(m.stopChan)
+	m.mu.Unlock()
 
 	// Stop all workers
 	for _, worker := range m.workers {
@@ -184,9 +171,18 @@ func (m *Manager) Stop(ctx context.Context) error {
 		worker.wg.Wait()
 	}
 
-	// Wait for dispatcher and scheduler
+	// Wait for dispatcher to finish
 	m.wg.Wait()
 
+	// Close driver connection
+	if m.driver != nil {
+		if err := m.driver.Close(); err != nil {
+			m.logError("Failed to close driver", err)
+			return fmt.Errorf("failed to close driver: %w", err)
+		}
+	}
+
+	m.logInfo("Queue manager stopped")
 	return nil
 }
 
@@ -255,10 +251,12 @@ func (m *Manager) processJob(pool *workerPool, job *Job) {
 		if err != nil {
 			job.MarkFailed(err)
 			if job.CanRetry() {
+				m.logInfo("Job failed, retrying", "job_id", job.ID, "job_name", job.Name, "attempt", job.Attempts, "error", err)
 				// Retry with backoff
 				job.WithDelay(m.config.RetryDelay * time.Duration(job.Attempts))
 				m.driver.Retry(job)
 			} else {
+				m.logError("Job failed permanently", err, "job_id", job.ID, "job_name", job.Name, "attempts", job.Attempts)
 				// Move to dead letter queue
 				m.driver.Failed(job)
 			}
@@ -269,8 +267,10 @@ func (m *Manager) processJob(pool *workerPool, job *Job) {
 	case <-ctx.Done():
 		job.MarkFailed(ErrJobTimeout)
 		if job.CanRetry() {
+			m.logInfo("Job timed out, retrying", "job_id", job.ID, "job_name", job.Name, "attempt", job.Attempts)
 			m.driver.Retry(job)
 		} else {
+			m.logError("Job timed out permanently", ErrJobTimeout, "job_id", job.ID, "job_name", job.Name, "attempts", job.Attempts)
 			m.driver.Failed(job)
 		}
 	}
@@ -321,44 +321,5 @@ func (m *Manager) fetchAndDispatchJobs() {
 	default:
 		// Worker pool is full, push job back to queue
 		m.driver.Push(job)
-	}
-}
-
-// runScheduler runs the job scheduler.
-func (m *Manager) runScheduler(ctx context.Context) {
-	defer m.wg.Done()
-
-	ticker := time.NewTicker(1 * time.Minute)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			m.checkSchedules()
-		case <-m.stopChan:
-			return
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
-// checkSchedules checks and executes due schedules.
-func (m *Manager) checkSchedules() {
-	now := time.Now()
-
-	for _, sched := range m.schedules {
-		if now.After(sched.next) || now.Equal(sched.next) {
-			// Execute scheduled job
-			go func(s *schedule) {
-				if err := s.handler(); err != nil {
-					// Log error (TODO: Add proper logging)
-					fmt.Printf("Scheduled job %s failed: %v\n", s.name, err)
-				}
-			}(sched)
-
-			// TODO: Calculate next run time based on cron
-			sched.next = now.Add(1 * time.Hour) // Placeholder
-		}
 	}
 }

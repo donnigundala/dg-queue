@@ -16,9 +16,6 @@ type Queue interface {
 	// DispatchBatch dispatches multiple jobs as a batch
 	DispatchBatch(name string, config BatchConfig, items interface{}, mapper BatchMapper) error
 
-	// Schedule schedules a job using cron syntax
-	Schedule(cron string, name string, handler ScheduleHandler) error
-
 	// Worker registers a worker for a job name
 	Worker(name string, concurrency int, handler WorkerFunc) error
 
@@ -40,9 +37,6 @@ type Queue interface {
 
 // WorkerFunc is the function signature for job handlers.
 type WorkerFunc func(job *Job) error
-
-// ScheduleHandler is the function signature for scheduled job handlers.
-type ScheduleHandler func() error
 
 // BatchMapper is the function signature for batch item mapping.
 type BatchMapper func(item interface{}) (interface{}, error)

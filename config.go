@@ -2,6 +2,19 @@ package queue
 
 import "time"
 
+// Logger is the interface for structured logging.
+// Implement this interface to integrate with your logging system.
+type Logger interface {
+	// Info logs an informational message
+	Info(msg string, keysAndValues ...interface{})
+
+	// Error logs an error message
+	Error(msg string, err error, keysAndValues ...interface{})
+
+	// Warn logs a warning message
+	Warn(msg string, keysAndValues ...interface{})
+}
+
 // Config represents the queue configuration.
 type Config struct {
 	// Driver specifies the queue driver (memory, redis, database)
@@ -30,6 +43,10 @@ type Config struct {
 
 	// Options contains driver-specific options
 	Options map[string]interface{} `mapstructure:"options"`
+
+	// Logger is used for structured logging (optional)
+	// If nil, no logging will be performed
+	Logger Logger
 }
 
 // DefaultConfig returns a configuration with sensible defaults.
@@ -44,6 +61,7 @@ func DefaultConfig() Config {
 		RetryDelay:   time.Second,
 		Workers:      5,
 		Options:      make(map[string]interface{}),
+		Logger:       nil, // No logging by default
 	}
 }
 

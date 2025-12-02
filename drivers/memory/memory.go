@@ -41,7 +41,7 @@ func (d *Driver) Pop(queueName string) (*queue.Job, error) {
 
 	jobs, exists := d.queues[queueName]
 	if !exists || len(jobs) == 0 {
-		return nil, queue.ErrJobNotFound
+		return nil, queue.ErrQueueEmpty
 	}
 
 	// Find first available job
@@ -53,7 +53,8 @@ func (d *Driver) Pop(queueName string) (*queue.Job, error) {
 		}
 	}
 
-	return nil, queue.ErrJobNotFound
+	// No available jobs (all delayed)
+	return nil, queue.ErrQueueEmpty
 }
 
 // Delete deletes a job.

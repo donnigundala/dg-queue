@@ -154,6 +154,9 @@ func (d *Driver) Size(queueName string) (int64, error) {
 
 // Close closes the Redis connection.
 func (d *Driver) Close() error {
+	if d.client == nil {
+		return nil
+	}
 	return d.client.Close()
 }
 

@@ -10,14 +10,12 @@ dg-queue is a production-ready queue system designed for Go applications with a 
 graph TB
     A[Manager] --> B[Driver Interface]
     A --> C[Worker Pools]
-    A --> D[Scheduler]
     A --> E[Batch Processor]
     
     B --> F[Memory Driver]
     B --> G[Redis Driver]
     
     C --> H[Job Handlers]
-    D --> I[Cron Jobs]
     E --> J[Bulk Operations]
 ```
 
@@ -93,20 +91,6 @@ manager.Worker("send-email", 5, func(job *Job) error {
 - Automatic job routing
 - Graceful shutdown support
 
-### Scheduler
-
-Cron-based scheduler for recurring jobs:
-
-```go
-scheduler := NewScheduler(manager)
-scheduler.ScheduleJob("*/5 * * * *", "cleanup", payload)
-```
-
-**Features:**
-- Standard cron syntax
-- Schedule management (add/remove)
-- Integration with job queue
-
 ### Batch Processor
 
 Efficient bulk operations:
@@ -131,7 +115,6 @@ All components accept dependencies via constructors:
 ```go
 manager := New(config)
 manager.SetDriver(driver)
-scheduler := NewScheduler(manager)
 batch := NewBatch(manager)
 ```
 

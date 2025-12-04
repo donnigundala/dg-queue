@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -60,6 +61,7 @@ func main() {
 
 	// Stop queue
 	fmt.Println("\nStopping queue...")
+	ctx := context.Background()
 	if err := q.Stop(ctx); err != nil {
 		log.Fatal(err)
 	}

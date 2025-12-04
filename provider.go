@@ -28,7 +28,7 @@ type QueueServiceProvider struct {
 
 // Name returns the name of the plugin.
 func (p *QueueServiceProvider) Name() string {
-	return "dg-queue"
+	return "queue"
 }
 
 // Version returns the version of the plugin.

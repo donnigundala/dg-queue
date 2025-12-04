@@ -23,7 +23,7 @@ type Queue interface {
 	Use(middleware Middleware) Queue
 
 	// Start starts the queue workers and scheduler
-	Start(ctx context.Context) error
+	Start() error
 
 	// Stop stops the queue gracefully
 	Stop(ctx context.Context) error

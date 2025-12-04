@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"time"
@@ -35,8 +34,7 @@ func main() {
 	})
 
 	// Start queue
-	ctx := context.Background()
-	if err := q.Start(ctx); err != nil {
+	if err := q.Start(); err != nil {
 		log.Fatal(err)
 	}
 

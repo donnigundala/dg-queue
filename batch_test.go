@@ -9,6 +9,7 @@ import (
 
 	queue "github.com/donnigundala/dg-queue"
 	"github.com/donnigundala/dg-queue/drivers/memory"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestBatch_DispatchBatch(t *testing.T) {
@@ -151,9 +152,10 @@ func TestBatch_ErrorHandling(t *testing.T) {
 		return fmt.Errorf("simulated error")
 	})
 
-	// Start the manager to process jobs
-	ctx := context.Background()
-	manager.Start(ctx)
+	// Start manager
+	err := manager.Start()
+	assert.NoError(t, err)
+	ctx := context.Background() // Keep ctx for manager.Stop
 	defer manager.Stop(ctx)
 
 	items := []interface{}{1, 2, 3}

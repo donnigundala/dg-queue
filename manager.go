@@ -124,7 +124,7 @@ func (m *Manager) Use(middleware Middleware) Queue {
 }
 
 // Start starts the queue workers and scheduler.
-func (m *Manager) Start(ctx context.Context) error {
+func (m *Manager) Start() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -145,7 +145,7 @@ func (m *Manager) Start(ctx context.Context) error {
 
 	// Start dispatcher
 	m.wg.Add(1)
-	go m.dispatchJobs(ctx)
+	go m.dispatchJobs(context.Background())
 
 	m.logInfo("Queue manager started", "workers", len(m.workers))
 	return nil

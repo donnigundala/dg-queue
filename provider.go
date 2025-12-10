@@ -33,7 +33,7 @@ func (p *QueueServiceProvider) Name() string {
 
 // Version returns the version of the plugin.
 func (p *QueueServiceProvider) Version() string {
-	return "1.4.0"
+	return "1.6.0"
 }
 
 // Dependencies returns the list of dependencies.
@@ -64,21 +64,22 @@ func (p *QueueServiceProvider) Register(app foundation.Application) error {
 	}
 
 	// Register the queue manager as a singleton
-	app.Singleton("queue", func() (interface{}, error) {
-		manager := New(cfg)
+	// Create the manager eagerly
+	manager := New(cfg)
 
-		// If a driver factory is provided, use it
-		if p.DriverFactory != nil {
-			driver, err := p.DriverFactory(cfg)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create queue driver: %w", err)
-			}
-			manager.SetDriver(driver)
+	// If a driver factory is provided, use it
+	if p.DriverFactory != nil {
+		driver, err := p.DriverFactory(cfg)
+		if err != nil {
+			return fmt.Errorf("failed to create queue driver: %w", err)
 		}
-		// Otherwise, driver must be set by the application
+		manager.SetDriver(driver)
+	}
 
-		return manager, nil
-	})
+	// Register the queue manager instance
+	// We use Instance (eager) instead of Singleton (lazy) to avoid potential
+	// deadlocks if dependencies try to resolve queue during their own construction
+	app.Instance("queue", manager)
 
 	return nil
 }

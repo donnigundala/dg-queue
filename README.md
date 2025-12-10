@@ -142,6 +142,37 @@ config := queue.Config{
 
 q := queue.New(config)
 ```
+
+## Container Integration (v1.6.0+)
+
+dg-queue provides first-class support for the `dg-core` container system.
+
+```go
+import (
+    "github.com/donnigundala/dg-queue"
+    "github.com/donnigundala/dg-core/contracts/foundation"
+)
+
+// 1. Resolve using helper functions
+q := queue.MustResolve(app)
+q.Dispatch("email", payload)
+
+// 2. Inject into your services
+type UserService struct {
+    *queue.Injectable
+}
+
+func NewUserService(app foundation.Application) *UserService {
+    return &UserService{
+        Injectable: queue.NewInjectable(app),
+    }
+}
+
+func (s *UserService) Register() {
+    // Access queue directly
+    s.Queue().Dispatch("welcome-email", payload)
+}
+```
 ## Roadmap
 
 - **v1.0.0** - Core queue + Memory driver ✅

@@ -1,4 +1,4 @@
-package queue
+package dgqueue
 
 import (
 	"testing"
@@ -34,28 +34,32 @@ func TestJob_NewJob(t *testing.T) {
 }
 
 func TestJob_WithQueue(t *testing.T) {
-	job := NewJob("test", "payload").WithQueue("custom")
+	job := NewJob("test", "payload")
+	WithQueue(job, "custom")
 	if job.Queue != "custom" {
 		t.Errorf("Expected queue 'custom', got %s", job.Queue)
 	}
 }
 
 func TestJob_WithMaxAttempts(t *testing.T) {
-	job := NewJob("test", "payload").WithMaxAttempts(5)
+	job := NewJob("test", "payload")
+	WithMaxAttempts(job, 5)
 	if job.MaxAttempts != 5 {
 		t.Errorf("Expected MaxAttempts 5, got %d", job.MaxAttempts)
 	}
 }
 
 func TestJob_WithTimeout(t *testing.T) {
-	job := NewJob("test", "payload").WithTimeout(60 * time.Second)
+	job := NewJob("test", "payload")
+	WithTimeout(job, 60*time.Second)
 	if job.Timeout != 60*time.Second {
 		t.Errorf("Expected timeout 60s, got %v", job.Timeout)
 	}
 }
 
 func TestJob_WithDelay(t *testing.T) {
-	job := NewJob("test", "payload").WithDelay(10 * time.Second)
+	job := NewJob("test", "payload")
+	WithDelay(job, 10*time.Second)
 	if job.Delay != 10*time.Second {
 		t.Errorf("Expected delay 10s, got %v", job.Delay)
 	}
@@ -67,7 +71,8 @@ func TestJob_WithDelay(t *testing.T) {
 }
 
 func TestJob_WithMetadata(t *testing.T) {
-	job := NewJob("test", "payload").WithMetadata("user_id", 123)
+	job := NewJob("test", "payload")
+	WithMetadata(job, "user_id", 123)
 	if job.Metadata["user_id"] != 123 {
 		t.Errorf("Expected metadata user_id=123, got %v", job.Metadata["user_id"])
 	}
@@ -76,34 +81,36 @@ func TestJob_WithMetadata(t *testing.T) {
 func TestJob_IsAvailable(t *testing.T) {
 	// Job available now
 	job1 := NewJob("test", "payload")
-	if !job1.IsAvailable() {
+	if !IsAvailable(job1) {
 		t.Error("Expected job to be available immediately")
 	}
 
 	// Job delayed
-	job2 := NewJob("test", "payload").WithDelay(1 * time.Hour)
-	if job2.IsAvailable() {
+	job2 := NewJob("test", "payload")
+	WithDelay(job2, 1*time.Hour)
+	if IsAvailable(job2) {
 		t.Error("Expected delayed job to not be available")
 	}
 }
 
 func TestJob_CanRetry(t *testing.T) {
-	job := NewJob("test", "payload").WithMaxAttempts(3)
+	job := NewJob("test", "payload")
+	WithMaxAttempts(job, 3)
 
 	// 0 attempts
-	if !job.CanRetry() {
+	if !CanRetry(job) {
 		t.Error("Expected job with 0 attempts to be retryable")
 	}
 
 	// 2 attempts
 	job.Attempts = 2
-	if !job.CanRetry() {
+	if !CanRetry(job) {
 		t.Error("Expected job with 2/3 attempts to be retryable")
 	}
 
 	// 3 attempts (max reached)
 	job.Attempts = 3
-	if job.CanRetry() {
+	if CanRetry(job) {
 		t.Error("Expected job with 3/3 attempts to not be retryable")
 	}
 }
@@ -113,7 +120,7 @@ func TestJob_MarkStarted(t *testing.T) {
 	initialUpdatedAt := job.UpdatedAt
 
 	time.Sleep(1 * time.Millisecond) // Ensure time difference
-	job.MarkStarted()
+	MarkStarted(job)
 
 	if job.StartedAt == nil {
 		t.Error("Expected StartedAt to be set")
@@ -131,7 +138,7 @@ func TestJob_MarkCompleted(t *testing.T) {
 	initialUpdatedAt := job.UpdatedAt
 
 	time.Sleep(1 * time.Millisecond)
-	job.MarkCompleted()
+	MarkCompleted(job)
 
 	if job.CompletedAt == nil {
 		t.Error("Expected CompletedAt to be set")
@@ -147,7 +154,7 @@ func TestJob_MarkFailed(t *testing.T) {
 
 	time.Sleep(1 * time.Millisecond)
 	err := ErrJobTimeout
-	job.MarkFailed(err)
+	MarkFailed(job, err)
 
 	if job.FailedAt == nil {
 		t.Error("Expected FailedAt to be set")
@@ -163,34 +170,34 @@ func TestJob_MarkFailed(t *testing.T) {
 func TestJob_GetStatus(t *testing.T) {
 	// Pending
 	job := NewJob("test", "payload")
-	if job.GetStatus() != "pending" {
-		t.Errorf("Expected status 'pending', got '%s'", job.GetStatus())
+	if GetJobStatus(job) != "pending" {
+		t.Errorf("Expected status 'pending', got '%s'", GetJobStatus(job))
 	}
 
 	// Delayed
-	job.WithDelay(1 * time.Hour)
-	if job.GetStatus() != "delayed" {
-		t.Errorf("Expected status 'delayed', got '%s'", job.GetStatus())
+	WithDelay(job, 1*time.Hour)
+	if GetJobStatus(job) != "delayed" {
+		t.Errorf("Expected status 'delayed', got '%s'", GetJobStatus(job))
 	}
 
 	// Processing
 	job = NewJob("test", "payload")
-	job.MarkStarted()
-	if job.GetStatus() != "processing" {
-		t.Errorf("Expected status 'processing', got '%s'", job.GetStatus())
+	MarkStarted(job)
+	if GetJobStatus(job) != "processing" {
+		t.Errorf("Expected status 'processing', got '%s'", GetJobStatus(job))
 	}
 
 	// Failed
-	job.MarkFailed(ErrJobTimeout)
-	if job.GetStatus() != "failed" {
-		t.Errorf("Expected status 'failed', got '%s'", job.GetStatus())
+	MarkFailed(job, ErrJobTimeout)
+	if GetJobStatus(job) != "failed" {
+		t.Errorf("Expected status 'failed', got '%s'", GetJobStatus(job))
 	}
 
 	// Completed
 	job = NewJob("test", "payload")
-	job.MarkCompleted()
-	if job.GetStatus() != "completed" {
-		t.Errorf("Expected status 'completed', got '%s'", job.GetStatus())
+	MarkCompleted(job)
+	if GetJobStatus(job) != "completed" {
+		t.Errorf("Expected status 'completed', got '%s'", GetJobStatus(job))
 	}
 }
 
@@ -199,10 +206,11 @@ func TestJob_Serialization(t *testing.T) {
 		"user_id": 123,
 		"email":   "test@example.com",
 	})
-	job.WithQueue("emails").WithMaxAttempts(5)
+	WithQueue(job, "emails")
+	WithMaxAttempts(job, 5)
 
 	// Marshal
-	data, err := job.Marshal()
+	data, err := MarshalJob(job)
 	if err != nil {
 		t.Fatalf("Failed to marshal job: %v", err)
 	}

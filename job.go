@@ -1,36 +1,17 @@
-package queue
+package dgqueue
 
 import (
 	"encoding/json"
 	"time"
 
+	"github.com/donnigundala/dg-core/contracts/queue"
 	"github.com/google/uuid"
 )
-
-// Job represents a queued job.
-type Job struct {
-	ID          string                 `json:"id"`
-	Name        string                 `json:"name"`
-	Queue       string                 `json:"queue"`
-	Payload     interface{}            `json:"payload"`
-	Attempts    int                    `json:"attempts"`
-	MaxAttempts int                    `json:"max_attempts"`
-	Timeout     time.Duration          `json:"timeout"`
-	Delay       time.Duration          `json:"delay"`
-	AvailableAt time.Time              `json:"available_at"`
-	CreatedAt   time.Time              `json:"created_at"`
-	UpdatedAt   time.Time              `json:"updated_at"`
-	StartedAt   *time.Time             `json:"started_at,omitempty"`
-	CompletedAt *time.Time             `json:"completed_at,omitempty"`
-	FailedAt    *time.Time             `json:"failed_at,omitempty"`
-	Error       string                 `json:"error,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
-}
 
 // NewJob creates a new job.
 func NewJob(name string, payload interface{}) *Job {
 	now := time.Now()
-	return &Job{
+	return &queue.Job{
 		ID:          uuid.New().String(),
 		Name:        name,
 		Queue:       "default",
@@ -47,48 +28,48 @@ func NewJob(name string, payload interface{}) *Job {
 }
 
 // WithQueue sets the queue name.
-func (j *Job) WithQueue(queue string) *Job {
+func WithQueue(j *Job, queue string) *Job {
 	j.Queue = queue
 	return j
 }
 
 // WithMaxAttempts sets the maximum retry attempts.
-func (j *Job) WithMaxAttempts(attempts int) *Job {
+func WithMaxAttempts(j *Job, attempts int) *Job {
 	j.MaxAttempts = attempts
 	return j
 }
 
 // WithTimeout sets the job timeout.
-func (j *Job) WithTimeout(timeout time.Duration) *Job {
+func WithTimeout(j *Job, timeout time.Duration) *Job {
 	j.Timeout = timeout
 	return j
 }
 
 // WithDelay sets the job delay.
-func (j *Job) WithDelay(delay time.Duration) *Job {
+func WithDelay(j *Job, delay time.Duration) *Job {
 	j.Delay = delay
 	j.AvailableAt = j.CreatedAt.Add(delay)
 	return j
 }
 
 // WithMetadata adds metadata to the job.
-func (j *Job) WithMetadata(key string, value interface{}) *Job {
+func WithMetadata(j *Job, key string, value interface{}) *Job {
 	j.Metadata[key] = value
 	return j
 }
 
 // IsAvailable returns true if the job is available for processing.
-func (j *Job) IsAvailable() bool {
+func IsAvailable(j *Job) bool {
 	return time.Now().After(j.AvailableAt) || time.Now().Equal(j.AvailableAt)
 }
 
 // CanRetry returns true if the job can be retried.
-func (j *Job) CanRetry() bool {
+func CanRetry(j *Job) bool {
 	return j.Attempts < j.MaxAttempts
 }
 
 // MarkStarted marks the job as started.
-func (j *Job) MarkStarted() {
+func MarkStarted(j *Job) {
 	now := time.Now()
 	j.StartedAt = &now
 	j.UpdatedAt = now
@@ -96,14 +77,14 @@ func (j *Job) MarkStarted() {
 }
 
 // MarkCompleted marks the job as completed.
-func (j *Job) MarkCompleted() {
+func MarkCompleted(j *Job) {
 	now := time.Now()
 	j.CompletedAt = &now
 	j.UpdatedAt = now
 }
 
 // MarkFailed marks the job as failed.
-func (j *Job) MarkFailed(err error) {
+func MarkFailed(j *Job, err error) {
 	now := time.Now()
 	j.FailedAt = &now
 	j.UpdatedAt = now
@@ -112,34 +93,22 @@ func (j *Job) MarkFailed(err error) {
 	}
 }
 
-// Marshal marshals the job to JSON.
-func (j *Job) Marshal() ([]byte, error) {
+// MarshalJob marshals the job to JSON.
+func MarshalJob(j *Job) ([]byte, error) {
 	return json.Marshal(j)
 }
 
-// Unmarshal unmarshals a job from JSON.
+// UnmarshalJob unmarshals a job from JSON.
 func UnmarshalJob(data []byte) (*Job, error) {
-	var job Job
+	var job queue.Job
 	if err := json.Unmarshal(data, &job); err != nil {
 		return nil, err
 	}
 	return &job, nil
 }
 
-// JobStatus represents the status of a job.
-type JobStatus struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Queue     string    `json:"queue"`
-	Status    string    `json:"status"` // pending, processing, completed, failed
-	Attempts  int       `json:"attempts"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Error     string    `json:"error,omitempty"`
-}
-
-// GetStatus returns the current status of the job.
-func (j *Job) GetStatus() string {
+// GetJobStatus returns the current status of the job.
+func GetJobStatus(j *Job) string {
 	if j.CompletedAt != nil {
 		return "completed"
 	}
@@ -149,7 +118,7 @@ func (j *Job) GetStatus() string {
 	if j.StartedAt != nil {
 		return "processing"
 	}
-	if !j.IsAvailable() {
+	if !IsAvailable(j) {
 		return "delayed"
 	}
 	return "pending"

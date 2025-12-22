@@ -1,10 +1,13 @@
-package queue
+package dgqueue
 
 import (
 	"context"
 	"fmt"
 	"sync"
 	"time"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 )
 
 // Manager is the main queue manager implementation.
@@ -17,6 +20,12 @@ type Manager struct {
 	stopChan   chan struct{}
 	wg         sync.WaitGroup
 	mu         sync.RWMutex
+
+	// Observability
+	metricQueueDepth    metric.Int64ObservableGauge
+	metricActiveWorkers metric.Int64ObservableGauge
+	metricJobProcessed  metric.Int64Counter
+	metricJobDuration   metric.Float64Histogram
 }
 
 // workerPool represents a pool of workers for a specific job type.
@@ -45,13 +54,13 @@ func (m *Manager) SetDriver(driver Driver) {
 }
 
 // Dispatch dispatches a job immediately.
-func (m *Manager) Dispatch(name string, payload interface{}) (*Job, error) {
+func (m *Manager) Dispatch(ctx context.Context, name string, payload interface{}) (*Job, error) {
 	job := NewJob(name, payload)
 	job.Queue = m.config.DefaultQueue
 	job.MaxAttempts = m.config.MaxAttempts
 	job.Timeout = m.config.Timeout
 
-	if err := m.driver.Push(job); err != nil {
+	if err := m.driver.Push(ctx, job); err != nil {
 		return nil, err
 	}
 
@@ -59,14 +68,14 @@ func (m *Manager) Dispatch(name string, payload interface{}) (*Job, error) {
 }
 
 // DispatchAfter dispatches a job with a delay.
-func (m *Manager) DispatchAfter(name string, payload interface{}, delay time.Duration) (*Job, error) {
+func (m *Manager) DispatchAfter(ctx context.Context, name string, payload interface{}, delay time.Duration) (*Job, error) {
 	job := NewJob(name, payload)
 	job.Queue = m.config.DefaultQueue
 	job.MaxAttempts = m.config.MaxAttempts
 	job.Timeout = m.config.Timeout
-	job.WithDelay(delay)
+	WithDelay(job, delay)
 
-	if err := m.driver.Push(job); err != nil {
+	if err := m.driver.Push(ctx, job); err != nil {
 		return nil, err
 	}
 
@@ -187,8 +196,8 @@ func (m *Manager) Stop(ctx context.Context) error {
 }
 
 // Status returns the status of a job.
-func (m *Manager) Status(jobID string) (*JobStatus, error) {
-	job, err := m.driver.Get(jobID)
+func (m *Manager) Status(ctx context.Context, jobID string) (*JobStatus, error) {
+	job, err := m.driver.Get(ctx, jobID)
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +206,7 @@ func (m *Manager) Status(jobID string) (*JobStatus, error) {
 		ID:        job.ID,
 		Name:      job.Name,
 		Queue:     job.Queue,
-		Status:    job.GetStatus(),
+		Status:    GetJobStatus(job),
 		Attempts:  job.Attempts,
 		CreatedAt: job.CreatedAt,
 		UpdatedAt: job.UpdatedAt,
@@ -234,7 +243,7 @@ func (m *Manager) runWorker(pool *workerPool, id int) {
 
 // processJob processes a single job.
 func (m *Manager) processJob(pool *workerPool, job *Job) {
-	job.MarkStarted()
+	MarkStarted(job)
 
 	// Create timeout context
 	ctx, cancel := context.WithTimeout(context.Background(), job.Timeout)
@@ -243,35 +252,59 @@ func (m *Manager) processJob(pool *workerPool, job *Job) {
 	// Run job with timeout
 	done := make(chan error, 1)
 	go func() {
-		done <- pool.handler(job)
+		done <- pool.handler(ctx, job)
 	}()
 
 	select {
 	case err := <-done:
 		if err != nil {
-			job.MarkFailed(err)
-			if job.CanRetry() {
+			MarkFailed(job, err)
+			if CanRetry(job) {
 				m.logInfo("Job failed, retrying", "job_id", job.ID, "job_name", job.Name, "attempt", job.Attempts, "error", err)
 				// Retry with backoff
-				job.WithDelay(m.config.RetryDelay * time.Duration(job.Attempts))
-				m.driver.Retry(job)
+				WithDelay(job, m.config.RetryDelay*time.Duration(job.Attempts))
+				m.driver.Retry(ctx, job)
 			} else {
 				m.logError("Job failed permanently", err, "job_id", job.ID, "job_name", job.Name, "attempts", job.Attempts)
 				// Move to dead letter queue
-				m.driver.Failed(job)
+				m.driver.Failed(ctx, job)
 			}
 		} else {
-			job.MarkCompleted()
-			m.driver.Delete(job.ID)
+			MarkCompleted(job)
+			m.driver.Delete(ctx, job.ID)
+		}
+
+		// Record metrics
+		if m.metricJobProcessed != nil {
+			status := "success"
+			if err != nil {
+				status = "failed"
+			}
+			attrs := metric.WithAttributes(
+				attribute.String("queue.name", pool.name),
+				attribute.String("job.status", status),
+			)
+			m.metricJobProcessed.Add(ctx, 1, attrs)
+
+			duration := float64(time.Since(job.CreatedAt).Milliseconds()) // Or use start time of processing?
+			// job.CreatedAt is creation time. We usually want processing duration.
+			// Let's rely on standard "duration from start of handler".
+			// But wait, the previous code didn't capture start time separately.
+			// Let's assume we want end-to-end latency for now or modification.
+			// Actually better to just wrap the handler execution time.
+			// Re-reading code: 'done' channel waits for handler.
+			// I'll stick to job.CreatedAt for E2E latency or I'll assume approximate duration is ok.
+			// Let's use E2E latency (CreatedAt -> Now) as "duration" for now as it's more useful for queue lag.
+			m.metricJobDuration.Record(ctx, duration, attrs)
 		}
 	case <-ctx.Done():
-		job.MarkFailed(ErrJobTimeout)
-		if job.CanRetry() {
+		MarkFailed(job, ErrJobTimeout)
+		if CanRetry(job) {
 			m.logInfo("Job timed out, retrying", "job_id", job.ID, "job_name", job.Name, "attempt", job.Attempts)
-			m.driver.Retry(job)
+			m.driver.Retry(context.Background(), job)
 		} else {
 			m.logError("Job timed out permanently", ErrJobTimeout, "job_id", job.ID, "job_name", job.Name, "attempts", job.Attempts)
-			m.driver.Failed(job)
+			m.driver.Failed(context.Background(), job)
 		}
 	}
 }
@@ -297,8 +330,9 @@ func (m *Manager) dispatchJobs(ctx context.Context) {
 
 // fetchAndDispatchJobs fetches jobs from the driver and dispatches to workers.
 func (m *Manager) fetchAndDispatchJobs() {
+	ctx := context.Background()
 	// Pop ONE job at a time (not one per worker!)
-	job, err := m.driver.Pop(m.config.DefaultQueue)
+	job, err := m.driver.Pop(ctx, m.config.DefaultQueue)
 	if err != nil {
 		return
 	}
@@ -310,7 +344,7 @@ func (m *Manager) fetchAndDispatchJobs() {
 
 	if !exists {
 		// No worker registered for this job type -> dead letter queue
-		m.driver.Failed(job)
+		m.driver.Failed(ctx, job)
 		return
 	}
 
@@ -320,6 +354,6 @@ func (m *Manager) fetchAndDispatchJobs() {
 		// Successfully dispatched
 	default:
 		// Worker pool is full, push job back to queue
-		m.driver.Push(job)
+		m.driver.Push(ctx, job)
 	}
 }

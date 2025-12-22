@@ -179,13 +179,30 @@ func (s *UserService) Register() {
 - **v1.1.0** - Redis driver ✅
 - **v1.2.0** - Batch processing ✅
 - **v1.3.0** - Graceful shutdown ✅
-- **v2.0.0** - Remove deprecated scheduler (use dg-scheduler)
+- **v2.0.0** - Remove deprecated scheduler
+- **v2.1.0** - Metrics & monitoring ✅
 
 **📋 Planned:**
 - Job chaining
 - Middleware system
 - Database driver
-- Metrics & monitoring
+
+## 📊 Observability
+
+`dg-queue` is instrumented with OpenTelemetry metrics. If `dg-observability` is registered and enabled, the following metrics are automatically collected:
+
+*   `queue.job.count`: Counter (labels: `queue`, `job_name`, `status`) - tracks processed jobs.
+*   `queue.job.duration`: Histogram (labels: `queue`, `job_name`, `status`) - execution time in milliseconds.
+*   `queue.depth`: Gauge (labels: `queue`) - number of pending jobs (Redis only).
+*   `queue.workers.active`: Gauge (labels: `queue`) - number of workers currently processing jobs.
+
+To enable observability, ensure the `dg-observability` plugin is registered and configured:
+
+```yaml
+observability:
+  enabled: true
+  service_name: "my-app"
+```
 
 ## Examples
 

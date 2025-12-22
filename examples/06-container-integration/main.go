@@ -1,30 +1,31 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	contractFoundation "github.com/donnigundala/dg-core/contracts/foundation"
 	"github.com/donnigundala/dg-core/foundation"
-	queue "github.com/donnigundala/dg-queue"
+	dgqueue "github.com/donnigundala/dg-queue"
 )
 
 // UserService demonstrates dependency injection
 type UserService struct {
-	*queue.Injectable
+	*dgqueue.Injectable
 }
 
 func NewUserService(app contractFoundation.Application) *UserService {
 	return &UserService{
-		Injectable: queue.NewInjectable(app),
+		Injectable: dgqueue.NewInjectable(app),
 	}
 }
 
-func (s *UserService) Welcome(email string) {
+func (s *UserService) Welcome(ctx context.Context, email string) {
 	fmt.Printf("Registering user %s...\n", email)
 
 	// Use queue via Injectable
-	job, err := s.Queue().Dispatch("send-email", map[string]string{
+	job, err := s.Queue().Dispatch(ctx, "send-email", map[string]string{
 		"email": email,
 		"type":  "welcome",
 	})
@@ -42,12 +43,12 @@ func main() {
 	app := foundation.New(".")
 
 	// 2. Setup Config (simulated)
-	cfg := queue.DefaultConfig()
+	cfg := dgqueue.DefaultConfig()
 	cfg.Driver = "memory"
 
 	// 3. Register Provider (Manual registration for example)
 	// In a real app, this is done by the framework
-	provider := &queue.QueueServiceProvider{
+	provider := &dgqueue.QueueServiceProvider{
 		Config: cfg,
 	}
 	if err := provider.Register(app); err != nil {
@@ -55,20 +56,20 @@ func main() {
 	}
 
 	// 4. Use Helper Functions
-	q := queue.MustResolve(app)
+	q := dgqueue.MustResolve(app)
 	q.Start()
-	defer q.Stop(nil) // ctx is optional for Stop in this example
+	defer q.Stop(context.Background()) // ctx is optional for Stop in this example
 
 	// Register a worker to see it working
-	q.Worker("send-email", 1, func(job *queue.Job) error {
-		payload := job.Payload.(map[string]string)
+	q.Worker("send-email", 1, func(ctx context.Context, job *dgqueue.Job) error {
+		payload := job.Payload.(map[string]interface{})
 		fmt.Printf("[Worker] Sending %s email to %s\n", payload["type"], payload["email"])
 		return nil
 	})
 
 	// 5. Use Dependency Injection Service
 	userService := NewUserService(app)
-	userService.Welcome("john@example.com")
+	userService.Welcome(context.Background(), "john@example.com")
 
 	// Wait for worker to process
 	time.Sleep(1 * time.Second)

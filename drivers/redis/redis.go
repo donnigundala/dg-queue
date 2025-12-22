@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	queue "github.com/donnigundala/dg-queue"
+	"github.com/donnigundala/dg-core/contracts/queue"
+	dgqueue "github.com/donnigundala/dg-queue"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -42,16 +43,14 @@ func NewDriverWithClient(client *redis.Client, prefix string) *Driver {
 }
 
 // Push pushes a job to the queue.
-func (d *Driver) Push(job *queue.Job) error {
-	ctx := context.Background()
-
-	data, err := job.Marshal()
+func (d *Driver) Push(ctx context.Context, job *queue.Job) error {
+	data, err := dgqueue.MarshalJob(job)
 	if err != nil {
 		return err
 	}
 
 	// If job has delay, add to delayed queue (sorted set)
-	if job.Delay > 0 || !job.IsAvailable() {
+	if job.Delay > 0 || !dgqueue.IsAvailable(job) {
 		score := float64(job.AvailableAt.Unix())
 		return d.client.ZAdd(ctx, d.delayedKey(job.Queue), redis.Z{
 			Score:  score,
@@ -64,27 +63,24 @@ func (d *Driver) Push(job *queue.Job) error {
 }
 
 // Pop pops a job from the queue.
-func (d *Driver) Pop(queueName string) (*queue.Job, error) {
-	ctx := context.Background()
-
+func (d *Driver) Pop(ctx context.Context, queueName string) (*queue.Job, error) {
 	// First, check delayed queue and move available jobs
-	d.moveDelayedJobs(queueName)
+	d.moveDelayedJobs(ctx, queueName)
 
 	// Pop from regular queue
 	data, err := d.client.LPop(ctx, d.queueKey(queueName)).Bytes()
 	if err == redis.Nil {
-		return nil, queue.ErrQueueEmpty
+		return nil, dgqueue.ErrQueueEmpty
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	return queue.UnmarshalJob(data)
+	return dgqueue.UnmarshalJob(data)
 }
 
 // moveDelayedJobs moves delayed jobs that are now available to the regular queue.
-func (d *Driver) moveDelayedJobs(queueName string) {
-	ctx := context.Background()
+func (d *Driver) moveDelayedJobs(ctx context.Context, queueName string) {
 	now := float64(time.Now().Unix())
 
 	// Get all jobs with score <= now
@@ -107,22 +103,20 @@ func (d *Driver) moveDelayedJobs(queueName string) {
 }
 
 // Delete deletes a job from the queue.
-func (d *Driver) Delete(jobID string) error {
+func (d *Driver) Delete(ctx context.Context, jobID string) error {
 	// For simplicity, we don't track individual jobs in Redis
 	// Jobs are deleted when popped
 	return nil
 }
 
 // Retry pushes a job back to the queue for retry.
-func (d *Driver) Retry(job *queue.Job) error {
-	return d.Push(job)
+func (d *Driver) Retry(ctx context.Context, job *queue.Job) error {
+	return d.Push(ctx, job)
 }
 
 // Failed moves a job to the failed queue.
-func (d *Driver) Failed(job *queue.Job) error {
-	ctx := context.Background()
-
-	data, err := job.Marshal()
+func (d *Driver) Failed(ctx context.Context, job *queue.Job) error {
+	data, err := dgqueue.MarshalJob(job)
 	if err != nil {
 		return err
 	}
@@ -131,14 +125,12 @@ func (d *Driver) Failed(job *queue.Job) error {
 }
 
 // Get retrieves a job by ID (not supported in Redis driver).
-func (d *Driver) Get(jobID string) (*queue.Job, error) {
+func (d *Driver) Get(ctx context.Context, jobID string) (*queue.Job, error) {
 	return nil, fmt.Errorf("Get not supported in Redis driver")
 }
 
 // Size returns the number of jobs in the queue.
-func (d *Driver) Size(queueName string) (int64, error) {
-	ctx := context.Background()
-
+func (d *Driver) Size(ctx context.Context, queueName string) (int64, error) {
 	regularSize, err := d.client.LLen(ctx, d.queueKey(queueName)).Result()
 	if err != nil {
 		return 0, err

@@ -1,9 +1,11 @@
 package memory
 
 import (
+	"context"
 	"sync"
 
-	queue "github.com/donnigundala/dg-queue"
+	"github.com/donnigundala/dg-core/contracts/queue"
+	dgqueue "github.com/donnigundala/dg-queue"
 )
 
 // Driver is an in-memory queue driver for testing.
@@ -22,7 +24,7 @@ func NewDriver() *Driver {
 }
 
 // Push pushes a job to the queue.
-func (d *Driver) Push(job *queue.Job) error {
+func (d *Driver) Push(ctx context.Context, job *queue.Job) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -35,18 +37,18 @@ func (d *Driver) Push(job *queue.Job) error {
 }
 
 // Pop pops a job from the queue.
-func (d *Driver) Pop(queueName string) (*queue.Job, error) {
+func (d *Driver) Pop(ctx context.Context, queueName string) (*queue.Job, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	jobs, exists := d.queues[queueName]
 	if !exists || len(jobs) == 0 {
-		return nil, queue.ErrQueueEmpty
+		return nil, dgqueue.ErrQueueEmpty
 	}
 
 	// Find first available job
 	for i, job := range jobs {
-		if job.IsAvailable() {
+		if dgqueue.IsAvailable(job) {
 			// Remove from queue
 			d.queues[queueName] = append(jobs[:i], jobs[i+1:]...)
 			return job, nil
@@ -54,11 +56,11 @@ func (d *Driver) Pop(queueName string) (*queue.Job, error) {
 	}
 
 	// No available jobs (all delayed)
-	return nil, queue.ErrQueueEmpty
+	return nil, dgqueue.ErrQueueEmpty
 }
 
 // Delete deletes a job.
-func (d *Driver) Delete(jobID string) error {
+func (d *Driver) Delete(ctx context.Context, jobID string) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -78,11 +80,11 @@ func (d *Driver) Delete(jobID string) error {
 		return nil
 	}
 
-	return queue.ErrJobNotFound
+	return dgqueue.ErrJobNotFound
 }
 
 // Retry retries a failed job.
-func (d *Driver) Retry(job *queue.Job) error {
+func (d *Driver) Retry(ctx context.Context, job *queue.Job) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -100,7 +102,7 @@ func (d *Driver) Retry(job *queue.Job) error {
 }
 
 // Failed moves a job to the dead letter queue.
-func (d *Driver) Failed(job *queue.Job) error {
+func (d *Driver) Failed(ctx context.Context, job *queue.Job) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -109,7 +111,7 @@ func (d *Driver) Failed(job *queue.Job) error {
 }
 
 // Get gets a job by ID.
-func (d *Driver) Get(jobID string) (*queue.Job, error) {
+func (d *Driver) Get(ctx context.Context, jobID string) (*queue.Job, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -127,11 +129,11 @@ func (d *Driver) Get(jobID string) (*queue.Job, error) {
 		return job, nil
 	}
 
-	return nil, queue.ErrJobNotFound
+	return nil, dgqueue.ErrJobNotFound
 }
 
 // Size returns the number of jobs in a queue.
-func (d *Driver) Size(queueName string) (int64, error) {
+func (d *Driver) Size(ctx context.Context, queueName string) (int64, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 

@@ -1,23 +1,25 @@
 package memory
 
 import (
+	"context"
 	"testing"
 
-	queue "github.com/donnigundala/dg-queue"
+	dgqueue "github.com/donnigundala/dg-queue"
 )
 
 func TestMemoryDriver_PushPop(t *testing.T) {
 	driver := NewDriver()
+	ctx := context.Background()
 
 	// Create and push a job
-	job := queue.NewJob("test-job", map[string]string{"key": "value"})
-	err := driver.Push(job)
+	job := dgqueue.NewJob("test-job", map[string]string{"key": "value"})
+	err := driver.Push(ctx, job)
 	if err != nil {
 		t.Fatalf("Push failed: %v", err)
 	}
 
 	// Pop the job
-	popped, err := driver.Pop("default")
+	popped, err := driver.Pop(ctx, "default")
 	if err != nil {
 		t.Fatalf("Pop failed: %v", err)
 	}
@@ -29,35 +31,37 @@ func TestMemoryDriver_PushPop(t *testing.T) {
 
 func TestMemoryDriver_Delete(t *testing.T) {
 	driver := NewDriver()
+	ctx := context.Background()
 
-	job := queue.NewJob("test-job", "payload")
-	driver.Push(job)
+	job := dgqueue.NewJob("test-job", "payload")
+	driver.Push(ctx, job)
 
-	err := driver.Delete(job.ID)
+	err := driver.Delete(ctx, job.ID)
 	if err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
 	// Try to get deleted job
-	_, err = driver.Get(job.ID)
-	if err != queue.ErrJobNotFound {
+	_, err = driver.Get(ctx, job.ID)
+	if err != dgqueue.ErrJobNotFound {
 		t.Error("Expected ErrJobNotFound")
 	}
 }
 
 func TestMemoryDriver_Retry(t *testing.T) {
 	driver := NewDriver()
+	ctx := context.Background()
 
-	job := queue.NewJob("test-job", "payload")
-	job.MarkFailed(nil)
+	job := dgqueue.NewJob("test-job", "payload")
+	dgqueue.MarkFailed(job, nil)
 
-	err := driver.Retry(job)
+	err := driver.Retry(ctx, job)
 	if err != nil {
 		t.Fatalf("Retry failed: %v", err)
 	}
 
 	// Job should be back in queue
-	popped, err := driver.Pop("default")
+	popped, err := driver.Pop(ctx, "default")
 	if err != nil {
 		t.Fatalf("Pop failed: %v", err)
 	}
@@ -69,17 +73,18 @@ func TestMemoryDriver_Retry(t *testing.T) {
 
 func TestMemoryDriver_Failed(t *testing.T) {
 	driver := NewDriver()
+	ctx := context.Background()
 
-	job := queue.NewJob("test-job", "payload")
-	job.MarkFailed(nil)
+	job := dgqueue.NewJob("test-job", "payload")
+	dgqueue.MarkFailed(job, nil)
 
-	err := driver.Failed(job)
+	err := driver.Failed(ctx, job)
 	if err != nil {
 		t.Fatalf("Failed failed: %v", err)
 	}
 
 	// Job should be in failed queue
-	failed, err := driver.Get(job.ID)
+	failed, err := driver.Get(ctx, job.ID)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
@@ -91,14 +96,15 @@ func TestMemoryDriver_Failed(t *testing.T) {
 
 func TestMemoryDriver_Size(t *testing.T) {
 	driver := NewDriver()
+	ctx := context.Background()
 
 	// Push 3 jobs
 	for i := 0; i < 3; i++ {
-		job := queue.NewJob("test-job", i)
-		driver.Push(job)
+		job := dgqueue.NewJob("test-job", i)
+		driver.Push(ctx, job)
 	}
 
-	size, err := driver.Size("default")
+	size, err := driver.Size(ctx, "default")
 	if err != nil {
 		t.Fatalf("Size failed: %v", err)
 	}

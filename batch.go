@@ -1,6 +1,7 @@
-package queue
+package dgqueue
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -18,7 +19,7 @@ func NewBatch(manager *Manager) *Batch {
 }
 
 // DispatchBatch dispatches multiple jobs in batches.
-func (b *Batch) DispatchBatch(name string, items []interface{}, config BatchConfig) (*BatchStatus, error) {
+func (b *Batch) DispatchBatch(ctx context.Context, name string, items []interface{}, config BatchConfig) (*BatchStatus, error) {
 	if len(items) == 0 {
 		return nil, fmt.Errorf("items cannot be empty")
 	}
@@ -53,7 +54,7 @@ func (b *Batch) DispatchBatch(name string, items []interface{}, config BatchConf
 
 			// Process chunk
 			for _, item := range chunk {
-				job, err := b.manager.Dispatch(name, item)
+				job, err := b.manager.Dispatch(ctx, name, item)
 				if err != nil {
 					status.Failed++
 					if config.OnError != nil {
@@ -86,7 +87,7 @@ func (b *Batch) DispatchBatch(name string, items []interface{}, config BatchConf
 }
 
 // Map applies a mapper function to each item and dispatches the result.
-func (b *Batch) Map(name string, items []interface{}, mapper BatchMapper, config BatchConfig) (*BatchStatus, error) {
+func (b *Batch) Map(ctx context.Context, name string, items []interface{}, mapper BatchMapper, config BatchConfig) (*BatchStatus, error) {
 	if mapper == nil {
 		return nil, fmt.Errorf("mapper cannot be nil")
 	}
@@ -107,7 +108,7 @@ func (b *Batch) Map(name string, items []interface{}, mapper BatchMapper, config
 		mappedItems = append(mappedItems, mapped)
 	}
 
-	return b.DispatchBatch(name, mappedItems, config)
+	return b.DispatchBatch(ctx, name, mappedItems, config)
 }
 
 // BatchStatus represents the status of a batch operation.

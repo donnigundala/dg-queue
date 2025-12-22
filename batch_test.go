@@ -1,4 +1,4 @@
-package queue_test
+package dgqueue_test
 
 import (
 	"context"
@@ -7,20 +7,20 @@ import (
 	"testing"
 	"time"
 
-	queue "github.com/donnigundala/dg-queue"
+	dgqueue "github.com/donnigundala/dg-queue"
 	"github.com/donnigundala/dg-queue/drivers/memory"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestBatch_DispatchBatch(t *testing.T) {
-	manager := queue.New(queue.DefaultConfig())
+	manager := dgqueue.New(dgqueue.DefaultConfig())
 	manager.SetDriver(memory.NewDriver())
-	batch := queue.NewBatch(manager)
+	batch := dgqueue.NewBatch(manager)
 
 	// Register worker
 	processed := 0
 	var mu sync.Mutex
-	manager.Worker("batch-job", 5, func(job *queue.Job) error {
+	manager.Worker("batch-job", 5, func(ctx context.Context, job *dgqueue.Job) error {
 		mu.Lock()
 		processed++
 		mu.Unlock()
@@ -33,7 +33,8 @@ func TestBatch_DispatchBatch(t *testing.T) {
 		map[string]string{"id": "3"},
 	}
 
-	status, err := batch.DispatchBatch("batch-job", items, queue.DefaultBatchConfig())
+	ctx := context.Background()
+	status, err := batch.DispatchBatch(ctx, "batch-job", items, dgqueue.DefaultBatchConfig())
 	if err != nil {
 		t.Fatalf("Failed to dispatch batch: %v", err)
 	}
@@ -55,21 +56,22 @@ func TestBatch_DispatchBatch(t *testing.T) {
 }
 
 func TestBatch_EmptyItems(t *testing.T) {
-	manager := queue.New(queue.DefaultConfig())
+	manager := dgqueue.New(dgqueue.DefaultConfig())
 	manager.SetDriver(memory.NewDriver())
-	batch := queue.NewBatch(manager)
+	batch := dgqueue.NewBatch(manager)
 
 	items := []interface{}{}
-	_, err := batch.DispatchBatch("test", items, queue.DefaultBatchConfig())
+	ctx := context.Background()
+	_, err := batch.DispatchBatch(ctx, "test", items, dgqueue.DefaultBatchConfig())
 	if err == nil {
 		t.Error("Expected error for empty items")
 	}
 }
 
 func TestBatch_Chunking(t *testing.T) {
-	manager := queue.New(queue.DefaultConfig())
+	manager := dgqueue.New(dgqueue.DefaultConfig())
 	manager.SetDriver(memory.NewDriver())
-	batch := queue.NewBatch(manager)
+	batch := dgqueue.NewBatch(manager)
 
 	// Create 250 items
 	items := make([]interface{}, 250)
@@ -77,12 +79,12 @@ func TestBatch_Chunking(t *testing.T) {
 		items[i] = i
 	}
 
-	config := queue.BatchConfig{
+	config := dgqueue.BatchConfig{
 		ChunkSize:       100,
 		ContinueOnError: true,
 	}
 
-	status, err := batch.DispatchBatch("test", items, config)
+	status, err := batch.DispatchBatch(context.Background(), "test", items, config)
 	if err != nil {
 		t.Fatalf("Failed to dispatch batch: %v", err)
 	}
@@ -100,16 +102,16 @@ func TestBatch_Chunking(t *testing.T) {
 }
 
 func TestBatch_ProgressCallback(t *testing.T) {
-	manager := queue.New(queue.DefaultConfig())
+	manager := dgqueue.New(dgqueue.DefaultConfig())
 	manager.SetDriver(memory.NewDriver())
-	batch := queue.NewBatch(manager)
+	batch := dgqueue.NewBatch(manager)
 
 	progressCalls := 0
 	var mu sync.Mutex
 
 	items := []interface{}{1, 2, 3, 4, 5}
 
-	config := queue.BatchConfig{
+	config := dgqueue.BatchConfig{
 		ChunkSize: 100,
 		OnProgress: func(processed, total int) {
 			mu.Lock()
@@ -119,7 +121,7 @@ func TestBatch_ProgressCallback(t *testing.T) {
 		ContinueOnError: true,
 	}
 
-	status, err := batch.DispatchBatch("test", items, config)
+	status, err := batch.DispatchBatch(context.Background(), "test", items, config)
 	if err != nil {
 		t.Fatalf("Failed to dispatch batch: %v", err)
 	}
@@ -140,15 +142,15 @@ func TestBatch_ProgressCallback(t *testing.T) {
 }
 
 func TestBatch_ErrorHandling(t *testing.T) {
-	manager := queue.New(queue.DefaultConfig())
+	manager := dgqueue.New(dgqueue.DefaultConfig())
 	manager.SetDriver(memory.NewDriver())
-	batch := queue.NewBatch(manager)
+	batch := dgqueue.NewBatch(manager)
 
 	errorCount := 0
 	var mu sync.Mutex
 
 	// Register a worker that always fails
-	manager.Worker("failing-job", 5, func(job *queue.Job) error {
+	manager.Worker("failing-job", 5, func(ctx context.Context, job *dgqueue.Job) error {
 		return fmt.Errorf("simulated error")
 	})
 
@@ -160,7 +162,7 @@ func TestBatch_ErrorHandling(t *testing.T) {
 
 	items := []interface{}{1, 2, 3}
 
-	config := queue.BatchConfig{
+	config := dgqueue.BatchConfig{
 		ChunkSize: 100,
 		OnError: func(item interface{}, err error) {
 			mu.Lock()
@@ -170,7 +172,8 @@ func TestBatch_ErrorHandling(t *testing.T) {
 		ContinueOnError: true,
 	}
 
-	status, err := batch.DispatchBatch("failing-job", items, config)
+	ctx = context.Background()
+	status, err := batch.DispatchBatch(ctx, "failing-job", items, config)
 	if err != nil {
 		t.Fatalf("Failed to dispatch batch: %v", err)
 	}
@@ -193,9 +196,9 @@ func TestBatch_ErrorHandling(t *testing.T) {
 }
 
 func TestBatch_Map(t *testing.T) {
-	manager := queue.New(queue.DefaultConfig())
+	manager := dgqueue.New(dgqueue.DefaultConfig())
 	manager.SetDriver(memory.NewDriver())
-	batch := queue.NewBatch(manager)
+	batch := dgqueue.NewBatch(manager)
 
 	items := []interface{}{1, 2, 3}
 
@@ -205,7 +208,8 @@ func TestBatch_Map(t *testing.T) {
 		return map[string]int{"value": num * 2}, nil
 	}
 
-	status, err := batch.Map("test", items, mapper, queue.DefaultBatchConfig())
+	ctx := context.Background()
+	status, err := batch.Map(ctx, "test", items, mapper, dgqueue.DefaultBatchConfig())
 	if err != nil {
 		t.Fatalf("Failed to map batch: %v", err)
 	}
@@ -223,9 +227,9 @@ func TestBatch_Map(t *testing.T) {
 }
 
 func TestBatch_MapWithError(t *testing.T) {
-	manager := queue.New(queue.DefaultConfig())
+	manager := dgqueue.New(dgqueue.DefaultConfig())
 	manager.SetDriver(memory.NewDriver())
-	batch := queue.NewBatch(manager)
+	batch := dgqueue.NewBatch(manager)
 
 	items := []interface{}{1, 2, 3}
 
@@ -234,19 +238,20 @@ func TestBatch_MapWithError(t *testing.T) {
 		return nil, fmt.Errorf("mapping error")
 	}
 
-	config := queue.BatchConfig{
+	config := dgqueue.BatchConfig{
 		ChunkSize:       100,
 		ContinueOnError: false,
 	}
 
-	_, err := batch.Map("test", items, mapper, config)
+	ctx := context.Background()
+	_, err := batch.Map(ctx, "test", items, mapper, config)
 	if err == nil {
 		t.Error("Expected error when mapping fails and ContinueOnError is false")
 	}
 }
 
 func TestBatchStatus_Progress(t *testing.T) {
-	status := &queue.BatchStatus{
+	status := &dgqueue.BatchStatus{
 		Total:     100,
 		Processed: 50,
 	}

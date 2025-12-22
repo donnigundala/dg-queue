@@ -1,0 +1,27 @@
+queue:
+  # Driver to use: redis or memory.
+  driver: "redis"
+  
+  # Default queue name.
+  default_queue: "default"
+  
+  # Maximum number of retry attempts for failed jobs.
+  max_attempts: 3
+  
+  # Maximum time a job is allowed to run.
+  timeout: 30s
+  
+  # Delay between retries.
+  retry_delay: 5s
+  
+  # Number of workers in the pool.
+  workers: 5
+
+  # Redis driver specific config.
+  redis:
+    connection: "default"
+    prefix: "dg_queue"
+
+  # Memory driver specific config (mostly for testing).
+  memory:
+    max_size: 1000

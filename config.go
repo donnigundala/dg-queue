@@ -1,18 +1,24 @@
-package queue
+package dgqueue
 
 import "time"
 
 // Logger is the interface for structured logging.
 // Implement this interface to integrate with your logging system.
 type Logger interface {
-	// Info logs an informational message
-	Info(msg string, keysAndValues ...interface{})
+	// Debug logs a debug message
+	Debug(msg string, args ...interface{})
 
-	// Error logs an error message
-	Error(msg string, err error, keysAndValues ...interface{})
+	// Info logs an informational message
+	Info(msg string, args ...interface{})
 
 	// Warn logs a warning message
-	Warn(msg string, keysAndValues ...interface{})
+	Warn(msg string, args ...interface{})
+
+	// Error logs an error message
+	Error(msg string, args ...interface{})
+
+	// With returns a new logger with the given fields added
+	With(args ...interface{}) Logger
 }
 
 // Config represents the queue configuration.
@@ -65,29 +71,11 @@ func DefaultConfig() Config {
 	}
 }
 
-// BatchConfig represents batch processing configuration.
-type BatchConfig struct {
-	// ChunkSize is the number of items to process per chunk
-	ChunkSize int
-
-	// RateLimit is the maximum number of jobs per second
-	RateLimit int
-
-	// OnProgress is called when progress is made
-	OnProgress func(processed, total int)
-
-	// OnError is called when an item fails
-	OnError func(item interface{}, err error)
-
-	// ContinueOnError determines if processing continues after an error
-	ContinueOnError bool
-}
-
 // DefaultBatchConfig returns a batch configuration with sensible defaults.
 func DefaultBatchConfig() BatchConfig {
 	return BatchConfig{
 		ChunkSize:       100,
-		RateLimit:       0, // No limit
 		ContinueOnError: true,
+		RateLimit:       0,
 	}
 }

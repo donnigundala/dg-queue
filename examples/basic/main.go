@@ -22,7 +22,7 @@ func main() {
 	q.SetDriver(memory.NewDriver())
 
 	// Register worker
-	q.Worker("send-email", 5, func(job *queue.Job) error {
+	q.Worker("send-email", 5, func(ctx context.Context, job *queue.Job) error {
 		email := job.Payload.(map[string]interface{})
 		fmt.Printf("[Worker] Sending email to: %s\n", email["to"])
 		fmt.Printf("[Worker] Subject: %s\n", email["subject"])
@@ -42,8 +42,9 @@ func main() {
 	fmt.Println("Queue started! Dispatching jobs...")
 
 	// Dispatch some jobs
+	ctx := context.Background()
 	for i := 1; i <= 5; i++ {
-		job, err := q.Dispatch("send-email", map[string]interface{}{
+		job, err := q.Dispatch(ctx, "send-email", map[string]interface{}{
 			"to":      fmt.Sprintf("user%d@example.com", i),
 			"subject": fmt.Sprintf("Welcome #%d", i),
 			"body":    "Welcome to our service!",
@@ -61,7 +62,7 @@ func main() {
 
 	// Stop queue
 	fmt.Println("\nStopping queue...")
-	ctx := context.Background()
+	ctx = context.Background()
 	if err := q.Stop(ctx); err != nil {
 		log.Fatal(err)
 	}

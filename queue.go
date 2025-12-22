@@ -1,72 +1,27 @@
-package queue
+package dgqueue
 
 import (
-	"context"
 	"time"
+
+	"github.com/donnigundala/dg-core/contracts/queue"
 )
 
-// Queue is the main interface for the queue system.
-type Queue interface {
-	// Dispatch dispatches a job immediately
-	Dispatch(name string, payload interface{}) (*Job, error)
-
-	// DispatchAfter dispatches a job with a delay
-	DispatchAfter(name string, payload interface{}, delay time.Duration) (*Job, error)
-
-	// DispatchBatch dispatches multiple jobs as a batch
-	DispatchBatch(name string, config BatchConfig, items interface{}, mapper BatchMapper) error
-
-	// Worker registers a worker for a job name
-	Worker(name string, concurrency int, handler WorkerFunc) error
-
-	// Use adds middleware to the queue
-	Use(middleware Middleware) Queue
-
-	// Start starts the queue workers and scheduler
-	Start() error
-
-	// Stop stops the queue gracefully
-	Stop(ctx context.Context) error
-
-	// Status returns the status of a job
-	Status(jobID string) (*JobStatus, error)
-
-	// Driver returns the underlying driver
-	Driver() Driver
-}
-
-// WorkerFunc is the function signature for job handlers.
-type WorkerFunc func(job *Job) error
+// Alias types for convenience within the package
+type Queue = queue.Queue
+type Driver = queue.Driver
+type Job = queue.Job
+type JobStatus = queue.JobStatus
+type WorkerFunc = queue.WorkerFunc
+type Middleware = queue.Middleware
 
 // BatchMapper is the function signature for batch item mapping.
 type BatchMapper func(item interface{}) (interface{}, error)
 
-// Middleware is the function signature for queue middleware.
-type Middleware func(next WorkerFunc) WorkerFunc
-
-// Driver is the interface for queue storage drivers.
-type Driver interface {
-	// Push pushes a job to the queue
-	Push(job *Job) error
-
-	// Pop pops a job from the queue
-	Pop(queueName string) (*Job, error)
-
-	// Delete deletes a job
-	Delete(jobID string) error
-
-	// Retry retries a failed job
-	Retry(job *Job) error
-
-	// Failed moves a job to the dead letter queue
-	Failed(job *Job) error
-
-	// Get gets a job by ID
-	Get(jobID string) (*Job, error)
-
-	// Size returns the number of jobs in a queue
-	Size(queueName string) (int64, error)
-
-	// Close closes the driver
-	Close() error
+// BatchConfig represents the configuration for a batch of jobs.
+type BatchConfig struct {
+	ChunkSize       int
+	OnProgress      func(processed, total int)
+	OnError         func(item interface{}, err error)
+	ContinueOnError bool
+	RateLimit       time.Duration
 }

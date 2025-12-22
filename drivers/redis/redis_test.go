@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	queue "github.com/donnigundala/dg-queue"
+	dgqueue "github.com/donnigundala/dg-queue"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -36,17 +36,18 @@ func setupRedisDriver(t *testing.T) *Driver {
 func TestRedisDriver_PushPop(t *testing.T) {
 	driver := setupRedisDriver(t)
 	defer driver.Close()
+	ctx := context.Background()
 
-	job := queue.NewJob("test-job", map[string]string{"key": "value"})
+	job := dgqueue.NewJob("test-job", map[string]string{"key": "value"})
 
 	// Push
-	err := driver.Push(job)
+	err := driver.Push(ctx, job)
 	if err != nil {
 		t.Fatalf("Failed to push job: %v", err)
 	}
 
 	// Pop
-	popped, err := driver.Pop("default")
+	popped, err := driver.Pop(ctx, "default")
 	if err != nil {
 		t.Fatalf("Failed to pop job: %v", err)
 	}
@@ -62,19 +63,21 @@ func TestRedisDriver_PushPop(t *testing.T) {
 func TestRedisDriver_DelayedJob(t *testing.T) {
 	driver := setupRedisDriver(t)
 	defer driver.Close()
+	ctx := context.Background()
 
 	// Create delayed job
-	job := queue.NewJob("delayed-job", "payload").WithDelay(2 * time.Second)
+	job := dgqueue.NewJob("delayed-job", "payload")
+	dgqueue.WithDelay(job, 2*time.Second)
 
 	// Push
-	err := driver.Push(job)
+	err := driver.Push(ctx, job)
 	if err != nil {
 		t.Fatalf("Failed to push delayed job: %v", err)
 	}
 
 	// Try to pop immediately (should be empty)
-	_, err = driver.Pop("default")
-	if err != queue.ErrQueueEmpty {
+	_, err = driver.Pop(ctx, "default")
+	if err != dgqueue.ErrQueueEmpty {
 		t.Error("Expected queue to be empty for delayed job")
 	}
 
@@ -82,7 +85,7 @@ func TestRedisDriver_DelayedJob(t *testing.T) {
 	time.Sleep(2500 * time.Millisecond)
 
 	// Pop should now work
-	popped, err := driver.Pop("default")
+	popped, err := driver.Pop(ctx, "default")
 	if err != nil {
 		t.Fatalf("Failed to pop after delay: %v", err)
 	}
@@ -95,17 +98,17 @@ func TestRedisDriver_DelayedJob(t *testing.T) {
 func TestRedisDriver_Failed(t *testing.T) {
 	driver := setupRedisDriver(t)
 	defer driver.Close()
+	ctx := context.Background()
 
-	job := queue.NewJob("failed-job", "payload")
+	job := dgqueue.NewJob("failed-job", "payload")
 
 	// Move to failed queue
-	err := driver.Failed(job)
+	err := driver.Failed(ctx, job)
 	if err != nil {
 		t.Fatalf("Failed to move job to failed queue: %v", err)
 	}
 
 	// Verify job is in failed queue
-	ctx := context.Background()
 	count, err := driver.client.LLen(ctx, driver.failedKey()).Result()
 	if err != nil {
 		t.Fatalf("Failed to get failed queue size: %v", err)
@@ -119,9 +122,10 @@ func TestRedisDriver_Failed(t *testing.T) {
 func TestRedisDriver_Size(t *testing.T) {
 	driver := setupRedisDriver(t)
 	defer driver.Close()
+	ctx := context.Background()
 
 	// Initially empty
-	size, err := driver.Size("default")
+	size, err := driver.Size(ctx, "default")
 	if err != nil {
 		t.Fatalf("Failed to get size: %v", err)
 	}
@@ -130,15 +134,16 @@ func TestRedisDriver_Size(t *testing.T) {
 	}
 
 	// Add regular job
-	job1 := queue.NewJob("job1", "payload")
-	driver.Push(job1)
+	job1 := dgqueue.NewJob("job1", "payload")
+	driver.Push(ctx, job1)
 
 	// Add delayed job
-	job2 := queue.NewJob("job2", "payload").WithDelay(1 * time.Hour)
-	driver.Push(job2)
+	job2 := dgqueue.NewJob("job2", "payload")
+	dgqueue.WithDelay(job2, 1*time.Hour)
+	driver.Push(ctx, job2)
 
 	// Size should include both
-	size, err = driver.Size("default")
+	size, err = driver.Size(ctx, "default")
 	if err != nil {
 		t.Fatalf("Failed to get size: %v", err)
 	}
@@ -150,18 +155,19 @@ func TestRedisDriver_Size(t *testing.T) {
 func TestRedisDriver_Retry(t *testing.T) {
 	driver := setupRedisDriver(t)
 	defer driver.Close()
+	ctx := context.Background()
 
-	job := queue.NewJob("retry-job", "payload")
+	job := dgqueue.NewJob("retry-job", "payload")
 	job.Attempts = 1
 
 	// Retry
-	err := driver.Retry(job)
+	err := driver.Retry(ctx, job)
 	if err != nil {
 		t.Fatalf("Failed to retry job: %v", err)
 	}
 
 	// Pop and verify
-	popped, err := driver.Pop("default")
+	popped, err := driver.Pop(ctx, "default")
 	if err != nil {
 		t.Fatalf("Failed to pop retried job: %v", err)
 	}
@@ -189,14 +195,15 @@ func TestRedisDriver_NewDriverWithClient(t *testing.T) {
 	// Create driver with shared client
 	driver := NewDriverWithClient(client, "shared_test")
 	defer driver.Close()
+	ctx = context.Background()
 
-	job := queue.NewJob("shared-job", "payload")
-	err := driver.Push(job)
+	job := dgqueue.NewJob("shared-job", "payload")
+	err := driver.Push(ctx, job)
 	if err != nil {
 		t.Fatalf("Failed to push with shared client: %v", err)
 	}
 
-	popped, err := driver.Pop("default")
+	popped, err := driver.Pop(ctx, "default")
 	if err != nil {
 		t.Fatalf("Failed to pop with shared client: %v", err)
 	}

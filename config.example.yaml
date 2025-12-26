@@ -17,6 +17,9 @@ queue:
   # Number of workers in the pool.
   workers: 5
 
+  # Whether to enable the worker loop.
+  worker_enabled: true
+
   # Redis driver specific config.
   redis:
     connection: "default"

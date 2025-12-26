@@ -88,18 +88,6 @@ func (m *Manager) DispatchBatch(name string, config BatchConfig, items interface
 	return fmt.Errorf("batch processing not yet implemented")
 }
 
-// ScheduleHandler is deprecated along with Schedule method.
-// Deprecated: Use dg-scheduler package instead.
-type ScheduleHandler func() error
-
-// Schedule is deprecated. Use github.com/donnigundala/dg-scheduler instead.
-// This method will be removed in v2.0.0.
-//
-// Deprecated: Scheduler has been moved to a separate package.
-func (m *Manager) Schedule(cron string, name string, handler ScheduleHandler) error {
-	return fmt.Errorf("scheduler has been moved to dg-scheduler package - see github.com/donnigundala/dg-scheduler")
-}
-
 // Worker registers a worker for a job name.
 func (m *Manager) Worker(name string, concurrency int, handler WorkerFunc) error {
 	m.mu.Lock()
@@ -139,6 +127,12 @@ func (m *Manager) Start() error {
 
 	if m.running {
 		return fmt.Errorf("queue already running")
+	}
+
+	// Check if workers are enabled
+	if !m.config.WorkerEnabled {
+		m.logInfo("Queue workers disabled by config")
+		return nil
 	}
 
 	// Recreate stopChan for safe restart

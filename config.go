@@ -50,6 +50,10 @@ type Config struct {
 	// Options contains driver-specific options
 	Options map[string]interface{} `mapstructure:"options"`
 
+	// WorkerEnabled determines if the queue workers should start
+	// If false, Start() will be a no-op (useful for web-only or scheduler-only modes)
+	WorkerEnabled bool `mapstructure:"worker_enabled"`
+
 	// Logger is used for structured logging (optional)
 	// If nil, no logging will be performed
 	Logger Logger
@@ -58,16 +62,17 @@ type Config struct {
 // DefaultConfig returns a configuration with sensible defaults.
 func DefaultConfig() Config {
 	return Config{
-		Driver:       "memory",
-		Connection:   "default",
-		Prefix:       "queue",
-		DefaultQueue: "default",
-		MaxAttempts:  3,
-		Timeout:      30 * time.Second,
-		RetryDelay:   time.Second,
-		Workers:      5,
-		Options:      make(map[string]interface{}),
-		Logger:       nil, // No logging by default
+		Driver:        "memory",
+		Connection:    "default",
+		Prefix:        "queue",
+		DefaultQueue:  "default",
+		MaxAttempts:   3,
+		Timeout:       30 * time.Second,
+		RetryDelay:    time.Second,
+		Workers:       5,
+		Options:       make(map[string]interface{}),
+		Logger:        nil, // No logging by default
+		WorkerEnabled: true,
 	}
 }
 

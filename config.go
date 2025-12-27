@@ -1,6 +1,10 @@
 package dgqueue
 
-import "time"
+import (
+	"time"
+
+	"github.com/mitchellh/mapstructure"
+)
 
 // Logger is the interface for structured logging.
 // Implement this interface to integrate with your logging system.
@@ -57,6 +61,19 @@ type Config struct {
 	// Logger is used for structured logging (optional)
 	// If nil, no logging will be performed
 	Logger Logger
+}
+
+// Decode decodes the driver options into the target struct.
+func (c Config) Decode(target interface{}) error {
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		Metadata: nil,
+		Result:   target,
+		TagName:  "mapstructure",
+	})
+	if err != nil {
+		return err
+	}
+	return decoder.Decode(c.Options)
 }
 
 // DefaultConfig returns a configuration with sensible defaults.

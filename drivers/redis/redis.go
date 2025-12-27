@@ -16,8 +16,34 @@ type Driver struct {
 	prefix string
 }
 
+func init() {
+	dgqueue.RegisterDriver("redis", NewDriver)
+}
+
+// Config represents the Redis driver configuration.
+type Config struct {
+	Addr     string `mapstructure:"addr"`
+	Password string `mapstructure:"password"`
+	DB       int    `mapstructure:"db"`
+}
+
 // NewDriver creates a new Redis queue driver.
-func NewDriver(prefix string, options *redis.Options) (*Driver, error) {
+func NewDriver(config dgqueue.Config) (dgqueue.Driver, error) {
+	var redisConfig Config
+	if err := config.Decode(&redisConfig); err != nil {
+		return nil, err
+	}
+
+	if redisConfig.Addr == "" {
+		redisConfig.Addr = "localhost:6379"
+	}
+
+	options := &redis.Options{
+		Addr:     redisConfig.Addr,
+		Password: redisConfig.Password,
+		DB:       redisConfig.DB,
+	}
+
 	client := redis.NewClient(options)
 
 	// Test connection
@@ -30,7 +56,7 @@ func NewDriver(prefix string, options *redis.Options) (*Driver, error) {
 
 	return &Driver{
 		client: client,
-		prefix: prefix,
+		prefix: config.Prefix,
 	}, nil
 }
 

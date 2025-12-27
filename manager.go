@@ -10,6 +10,21 @@ import (
 	"go.opentelemetry.io/otel/metric"
 )
 
+// DriverFactory is a function that creates a queue driver.
+type DriverFactory func(Config) (Driver, error)
+
+var (
+	globalDrivers   = make(map[string]DriverFactory)
+	globalDriversMu sync.RWMutex
+)
+
+// RegisterDriver registers a driver factory globally.
+func RegisterDriver(name string, factory DriverFactory) {
+	globalDriversMu.Lock()
+	defer globalDriversMu.Unlock()
+	globalDrivers[name] = factory
+}
+
 // Manager is the main queue manager implementation.
 type Manager struct {
 	config     Config

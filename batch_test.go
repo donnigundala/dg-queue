@@ -14,7 +14,8 @@ import (
 
 func TestBatch_DispatchBatch(t *testing.T) {
 	manager := dgqueue.New(dgqueue.DefaultConfig())
-	manager.SetDriver(memory.NewDriver())
+	d, _ := memory.NewDriver(dgqueue.DefaultConfig())
+	manager.SetDriver(d)
 	batch := dgqueue.NewBatch(manager)
 
 	// Register worker
@@ -57,7 +58,8 @@ func TestBatch_DispatchBatch(t *testing.T) {
 
 func TestBatch_EmptyItems(t *testing.T) {
 	manager := dgqueue.New(dgqueue.DefaultConfig())
-	manager.SetDriver(memory.NewDriver())
+	d, _ := memory.NewDriver(dgqueue.DefaultConfig())
+	manager.SetDriver(d)
 	batch := dgqueue.NewBatch(manager)
 
 	items := []interface{}{}
@@ -70,7 +72,8 @@ func TestBatch_EmptyItems(t *testing.T) {
 
 func TestBatch_Chunking(t *testing.T) {
 	manager := dgqueue.New(dgqueue.DefaultConfig())
-	manager.SetDriver(memory.NewDriver())
+	d, _ := memory.NewDriver(dgqueue.DefaultConfig())
+	manager.SetDriver(d)
 	batch := dgqueue.NewBatch(manager)
 
 	// Create 250 items
@@ -103,7 +106,8 @@ func TestBatch_Chunking(t *testing.T) {
 
 func TestBatch_ProgressCallback(t *testing.T) {
 	manager := dgqueue.New(dgqueue.DefaultConfig())
-	manager.SetDriver(memory.NewDriver())
+	d, _ := memory.NewDriver(dgqueue.DefaultConfig())
+	manager.SetDriver(d)
 	batch := dgqueue.NewBatch(manager)
 
 	progressCalls := 0
@@ -143,7 +147,8 @@ func TestBatch_ProgressCallback(t *testing.T) {
 
 func TestBatch_ErrorHandling(t *testing.T) {
 	manager := dgqueue.New(dgqueue.DefaultConfig())
-	manager.SetDriver(memory.NewDriver())
+	d, _ := memory.NewDriver(dgqueue.DefaultConfig())
+	manager.SetDriver(d)
 	batch := dgqueue.NewBatch(manager)
 
 	errorCount := 0
@@ -197,7 +202,8 @@ func TestBatch_ErrorHandling(t *testing.T) {
 
 func TestBatch_Map(t *testing.T) {
 	manager := dgqueue.New(dgqueue.DefaultConfig())
-	manager.SetDriver(memory.NewDriver())
+	d, _ := memory.NewDriver(dgqueue.DefaultConfig())
+	manager.SetDriver(d)
 	batch := dgqueue.NewBatch(manager)
 
 	items := []interface{}{1, 2, 3}
@@ -228,7 +234,8 @@ func TestBatch_Map(t *testing.T) {
 
 func TestBatch_MapWithError(t *testing.T) {
 	manager := dgqueue.New(dgqueue.DefaultConfig())
-	manager.SetDriver(memory.NewDriver())
+	d, _ := memory.NewDriver(dgqueue.DefaultConfig())
+	manager.SetDriver(d)
 	batch := dgqueue.NewBatch(manager)
 
 	items := []interface{}{1, 2, 3}

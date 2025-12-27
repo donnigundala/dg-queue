@@ -19,7 +19,8 @@ type EmailJob struct {
 func main() {
 	// Create queue with memory driver
 	q := queue.New(queue.DefaultConfig())
-	q.SetDriver(memory.NewDriver())
+	d, _ := memory.NewDriver(queue.DefaultConfig())
+	q.SetDriver(d)
 
 	// Register worker
 	q.Worker("send-email", 5, func(ctx context.Context, job *queue.Job) error {

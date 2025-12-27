@@ -15,12 +15,16 @@ type Driver struct {
 	mu     sync.RWMutex
 }
 
+func init() {
+	dgqueue.RegisterDriver("memory", NewDriver)
+}
+
 // NewDriver creates a new memory driver.
-func NewDriver() *Driver {
+func NewDriver(config dgqueue.Config) (dgqueue.Driver, error) {
 	return &Driver{
 		queues: make(map[string][]*queue.Job),
 		failed: make(map[string]*queue.Job),
-	}
+	}, nil
 }
 
 // Push pushes a job to the queue.

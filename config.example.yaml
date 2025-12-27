@@ -17,8 +17,8 @@ queue:
   # Number of workers in the pool.
   workers: 5
 
-  # Whether to enable the worker loop.
-  worker_enabled: true
+  # Whether to enable the worker loop (should be false for web apps, true for workers).
+  worker_enabled: false
 
   # Redis driver specific config.
   redis:

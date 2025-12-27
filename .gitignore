@@ -1,26 +1,38 @@
-# Go workspace generated file
-go.work.sum
+# Binaries
+bin/
+main
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+build/
+dist/
 
-# IDE
+# Test/Coverage
+*.test
+*.out
+coverage.txt
+
+# Local development
+.env
+.env.local
+.env.*.local
+
+# IDEs
 .idea/
 .vscode/
 *.iml
 
-# OS
+# OS files
 .DS_Store
-.DS_Store?
-._*
 Thumbs.db
 
-# Build artifacts
-bin/
-dist/
-*.exe
+# Example databases
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
 
-# Dependencies
-vendor/
-
-# Temporary files
-*.tmp
+# Logs
 *.log
-tmp/

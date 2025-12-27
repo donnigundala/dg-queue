@@ -13,7 +13,7 @@ func TestQueueServiceProvider_Name(t *testing.T) {
 
 func TestQueueServiceProvider_Version(t *testing.T) {
 	provider := &QueueServiceProvider{}
-	assert.Equal(t, "1.6.0", provider.Version())
+	assert.Equal(t, "1.7.0", provider.Version())
 }
 
 func TestQueueServiceProvider_Dependencies(t *testing.T) {

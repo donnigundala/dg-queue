@@ -25,40 +25,43 @@ go get github.com/donnigundala/dg-queue@v1.0.0
 
 ## Quick Start
 
-### Basic Usage (Memory Driver)
-
 ```go
 package main
 
 import (
-    "context"
-    "fmt"
+    "github.com/donnigundala/dg-core/foundation"
     "github.com/donnigundala/dg-queue"
 )
 
 func main() {
-    // Create queue with default config (uses memory driver)
-    q := queue.New(queue.DefaultConfig())
-
-    // Register worker
-    q.Worker("send-email", 5, func(job *queue.Job) error {
-        email := job.Payload.(map[string]interface{})
-        fmt.Printf("Sending email to: %s\n", email["to"])
-        return nil
-    })
-
-    // Start queue
-    ctx := context.Background()
-    q.Start(ctx)
-    defer q.Stop(ctx)
-
-    // Dispatch job
-    job, _ := q.Dispatch("send-email", map[string]interface{}{
-        "to":      "user@example.com",
-        "subject": "Welcome!",
-    })
+    app := foundation.New(".")
     
-    fmt.Printf("Job %s dispatched\n", job.ID)
+    // Register provider (uses 'queue' key in config)
+    app.Register(dgqueue.NewQueueServiceProvider(nil))
+    
+    app.Start()
+    
+    // Usage
+    q := dgqueue.MustResolve(app)
+    q.Dispatch("send-email", map[string]interface{}{"to": "user@test.com"})
+}
+```
+
+### Integration via InfrastructureSuite
+In your `bootstrap/app.go`, you typically use the declarative suite pattern:
+
+```go
+func InfrastructureSuite(workerMode bool) []foundation.ServiceProvider {
+	// 1. Add Queue (Always register for dispatching)
+	queueProvider := dgqueue.NewQueueServiceProvider(nil)
+    
+	// 2. Inject mode-based worker state
+	queueProvider.Config.WorkerEnabled = workerMode
+    
+	return []foundation.ServiceProvider{
+		queueProvider,
+		// ... other providers
+	}
 }
 ```
 
@@ -130,17 +133,30 @@ fmt.Printf("Dispatched %d jobs\n", status.Total)
 
 ## Configuration
 
-```go
-config := queue.Config{
-    Driver:       "redis",          // or "memory"
-    DefaultQueue: "default",
-    MaxAttempts:  3,                // Retry up to 3 times
-    Timeout:      30 * time.Second, // Job timeout
-    RetryDelay:   time.Second,      // Delay between retries
-    Workers:      5,                // Worker pool size
-}
+The plugin uses the `queue` key in your configuration file.
 
-q := queue.New(config)
+### Configuration Mapping (YAML vs ENV)
+
+| YAML Key | Environment Variable | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `queue.driver` | `QUEUE_DRIVER` | `memory` | `redis`, `memory` |
+| `queue.connection` | `QUEUE_CONNECTION` | `default` | Redis connection name |
+| `queue.prefix` | `QUEUE_PREFIX` | `queue_` | Key prefix |
+| `queue.default_queue` | `QUEUE_DEFAULT_QUEUE` | `default` | Default queue name |
+| `queue.max_attempts` | `QUEUE_MAX_ATTEMPTS` | `3` | Max retry attempts |
+| `queue.timeout` | `QUEUE_TIMEOUT` | `30s` | Job timeout duration |
+| `queue.worker_enabled` | `QUEUE_WORKER_ENABLED` | `true` | Start worker loop |
+| `queue.workers` | `QUEUE_WORKERS` | `5` | Number of concurrent workers |
+
+### Example YAML
+
+```yaml
+queue:
+  driver: "redis"
+  connection: "default"
+  worker_enabled: false # Set to true on Worker nodes
+  workers: 10
+  timeout: 60s
 ```
 
 ## Container Integration (v1.6.0+)

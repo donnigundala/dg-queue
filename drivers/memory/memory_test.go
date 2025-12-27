@@ -8,7 +8,7 @@ import (
 )
 
 func TestMemoryDriver_PushPop(t *testing.T) {
-	driver := NewDriver()
+	driver, _ := NewDriver(dgqueue.DefaultConfig())
 	ctx := context.Background()
 
 	// Create and push a job
@@ -30,7 +30,7 @@ func TestMemoryDriver_PushPop(t *testing.T) {
 }
 
 func TestMemoryDriver_Delete(t *testing.T) {
-	driver := NewDriver()
+	driver, _ := NewDriver(dgqueue.DefaultConfig())
 	ctx := context.Background()
 
 	job := dgqueue.NewJob("test-job", "payload")
@@ -49,7 +49,7 @@ func TestMemoryDriver_Delete(t *testing.T) {
 }
 
 func TestMemoryDriver_Retry(t *testing.T) {
-	driver := NewDriver()
+	driver, _ := NewDriver(dgqueue.DefaultConfig())
 	ctx := context.Background()
 
 	job := dgqueue.NewJob("test-job", "payload")
@@ -72,7 +72,7 @@ func TestMemoryDriver_Retry(t *testing.T) {
 }
 
 func TestMemoryDriver_Failed(t *testing.T) {
-	driver := NewDriver()
+	driver, _ := NewDriver(dgqueue.DefaultConfig())
 	ctx := context.Background()
 
 	job := dgqueue.NewJob("test-job", "payload")
@@ -95,7 +95,7 @@ func TestMemoryDriver_Failed(t *testing.T) {
 }
 
 func TestMemoryDriver_Size(t *testing.T) {
-	driver := NewDriver()
+	driver, _ := NewDriver(dgqueue.DefaultConfig())
 	ctx := context.Background()
 
 	// Push 3 jobs

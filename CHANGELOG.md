@@ -1,93 +1,52 @@
-# dg-queue CHANGELOG
+# Changelog
 
-## [1.0.0] - 2025-11-24
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.0.0] - 2025-12-27
 
 ### Added
-- **Core Queue System**
-  - Job lifecycle management with retry logic
-  - Worker pools with configurable concurrency
-  - Graceful shutdown support
-  - Job status tracking with UpdatedAt field
-  
-- **Drivers**
-  - Memory driver for development/testing (5 tests)
-  - Redis driver for production (6 tests)
-    - Delayed jobs using Redis sorted sets
-    - Dead letter queue for failed jobs
-    - Shared client support via `NewDriverWithClient`
-  
-- **Scheduler** (7 tests)
-  - Cron-based job scheduling using robfig/cron
-  - Schedule management (add, remove, count)
-  - Convenience `ScheduleJob` method
-  
-- **Batch Processing** (8 tests)
-  - Bulk job dispatching with chunking
-  - Progress callbacks
-  - Error handling with continue-on-error option
-  - Map function for item transformation
-  - Rate limiting support
+- Initial stable release of the `dg-queue` plugin.
+- **Core Queue System**: Job lifecycle management with retry logic and worker pools.
+- **Multi-Driver Support**: Memory driver (development) and Redis driver (production).
+- **Batch Processing**: Bulk job dispatching with chunking, progress callbacks, and rate limiting.
+- **Container Integration**: Auto-registration with Injectable pattern and helper functions.
+- **Observability**: OpenTelemetry metrics for job processing and queue performance.
+- **Graceful Shutdown**: Proper cleanup and worker termination.
 
-### Fixed
-- Critical job dispatcher bug (was misrouting jobs to wrong workers)
-- Job UpdatedAt tracking for all state changes
-- Lint errors in example files
+### Features
+- Job status tracking with automatic UpdatedAt field
+- Delayed jobs using Redis sorted sets
+- Dead letter queue for failed jobs
+- Shared Redis client support
+- Configurable worker concurrency
+- Error handling with continue-on-error option
+- Production-ready with 42+ comprehensive tests
 
-### Technical Details
-- 42 comprehensive tests passing
+### Documentation
+- Complete README with quick start and examples
+- Container integration example
+- Migration guide for scheduler extraction
+
+### Performance
 - Zero external dependencies (except go-redis for Redis driver)
-- Production-ready with full test coverage
+- Efficient worker pool management
+- Optimized batch processing
 
-## [1.3.0] - 2025-12-03
+---
 
-### Changed
-- **BREAKING**: Scheduler functionality extracted to separate `dg-scheduler` package
-- `Manager.Schedule()` method now deprecated (returns error with migration message)
-- Improved shutdown mechanism with proper driver cleanup
-- Memory driver now returns `ErrQueueEmpty` instead of `ErrJobNotFound` for consistency
-- Updated README with scheduler migration guide
+## Development History
 
-### Added
-- Driver connection cleanup in `Manager.Stop()` - fixes shutdown hang
-- `stopChan` recreation in `Manager.Start()` - allows safe restart
-- Nil check in Redis driver `Close()` method
-- Deprecation notice for `Schedule()` method
-- Migration guide in README
+The following versions represent the development journey leading to v1.0.0:
 
-### Fixed
-- **Critical**: Application no longer hangs on shutdown (Ctrl+C)
-- Redis connections now properly closed on shutdown
-- Queue can be safely stopped and restarted
-- Error consistency between memory and Redis drivers
+### 2025-12-03
+- Scheduler functionality extracted to separate `dg-scheduler` package
+- Fixed critical shutdown hang issue
+- Improved driver cleanup mechanism
 
-### Removed
-- Scheduler logic from Manager (moved to dg-scheduler)
-- `Schedule()` method from Queue interface
-- `ScheduleHandler` type from queue.go
-- Internal `schedule` struct and scheduler goroutines
-
-### Migration Guide
-Users of `Manager.Schedule()` should migrate to the new `dg-scheduler` package:
-
-```go
-// Before (v1.2.x - now deprecated)
-q.Schedule("*/5 * * * *", "cleanup", handler)
-
-// After (v1.3.0+)
-import "github.com/donnigundala/dg-scheduler"
-s := scheduler.New(q)
-s.Schedule("*/5 * * * *", "cleanup", handler)
-```
-
-See [dg-scheduler](https://github.com/donnigundala/dg-scheduler) for full documentation.
-
-### Dependencies
-- Removed: `github.com/robfig/cron/v3` (moved to dg-scheduler)
-
-## [0.1.0] - 2025-11-24
-
-### Added
-- Initial implementation of dg-queue core and memory driver
-- Basic job processing with retry logic
-- Worker pools with configurable concurrency
-- 5 memory driver tests
+### 2025-11-24
+- Initial implementation with memory and Redis drivers
+- Batch processing capabilities
+- Cron-based scheduling (later extracted)

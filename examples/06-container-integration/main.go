@@ -48,12 +48,10 @@ func main() {
 
 	// 3. Register Provider (Manual registration for example)
 	// In a real app, this is done by the framework
-	provider := &dgqueue.QueueServiceProvider{
-		Config: cfg,
-	}
-	if err := provider.Register(app); err != nil {
-		panic(err)
-	}
+	// 3. Register Provider
+	provider := dgqueue.NewQueueServiceProvider(nil)
+	provider.Config = cfg // Manually set config for this example
+	app.Register(provider)
 
 	// 4. Use Helper Functions
 	q := dgqueue.MustResolve(app)

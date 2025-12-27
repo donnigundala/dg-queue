@@ -76,13 +76,33 @@ func (p *QueueServiceProvider) Register(app foundation.Application) error {
 		// Create the manager
 		manager := New(cfg)
 
-		// If a driver factory is provided, use it
+		// Resolve driver
+		var driver Driver
 		if p.DriverFactory != nil {
-			driver, err := p.DriverFactory(cfg)
+			var err error
+			driver, err = p.DriverFactory(cfg)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create queue driver: %w", err)
+				return nil, fmt.Errorf("failed to create queue driver from factory: %w", err)
 			}
+		} else {
+			// Use global registry
+			globalDriversMu.RLock()
+			factory, ok := globalDrivers[cfg.Driver]
+			globalDriversMu.RUnlock()
+
+			if ok {
+				var err error
+				driver, err = factory(cfg)
+				if err != nil {
+					return nil, fmt.Errorf("failed to create queue driver %s: %w", cfg.Driver, err)
+				}
+			}
+		}
+
+		if driver != nil {
 			manager.SetDriver(driver)
+		} else if cfg.Driver != "" {
+			return nil, fmt.Errorf("queue driver %s not found and no factory provided", cfg.Driver)
 		}
 
 		return manager, nil
@@ -93,22 +113,6 @@ func (p *QueueServiceProvider) Register(app foundation.Application) error {
 
 // Boot boots the queue service provider.
 func (p *QueueServiceProvider) Boot(app foundation.Application) error {
-	// Try to resolve manager and register metrics
-	instance, err := app.Make(Binding)
-	if err == nil {
-		if manager, ok := instance.(*Manager); ok {
-			if err := manager.RegisterMetrics(); err != nil {
-				// We don't fail boot if metrics fail, just log it
-				if log, err := app.Make("logger"); err == nil {
-					if l, ok := log.(interface {
-						Warn(msg string, args ...interface{})
-					}); ok {
-						l.Warn("Failed to register queue metrics", "error", err)
-					}
-				}
-			}
-		}
-	}
 	return nil
 }
 
